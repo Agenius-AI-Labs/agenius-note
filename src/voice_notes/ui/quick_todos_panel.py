@@ -38,10 +38,6 @@ from ..core.db import (
 from .signals import AppSignals
 
 
-EXPANDED_WIDTH = 280
-COLLAPSED_WIDTH = 36
-
-
 class _TodoRow(QFrame):
     """One row in the todo list: [checkbox] [text] [× delete on hover]."""
 
@@ -94,18 +90,17 @@ class _TodoRow(QFrame):
 
 
 class QuickTodosPanel(QFrame):
-    """Collapsible right-side todo panel."""
+    """Right-side todo panel. Top half of the right column splitter."""
 
     def __init__(self, signals: AppSignals, parent=None):
         super().__init__(parent)
         self.setObjectName("quickTodosPanel")
         self._signals = signals
-        self._collapsed = (db_get_setting("qt_panel_collapsed", "0") or "0") == "1"
 
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        self.setMinimumHeight(120)
         self._build()
         self._wire()
-        self._apply_collapsed()
         self.refresh()
 
     # ── Build ─────────────────────────────────────────────────
@@ -121,14 +116,6 @@ class QuickTodosPanel(QFrame):
         h = QHBoxLayout(header)
         h.setContentsMargins(8, 12, 10, 8)
         h.setSpacing(8)
-
-        self._chevron = QPushButton("›", header)
-        self._chevron.setObjectName("qtChevron")
-        self._chevron.setCursor(Qt.PointingHandCursor)
-        self._chevron.setFixedSize(22, 22)
-        self._chevron.setToolTip("Collapse todos")
-        self._chevron.clicked.connect(self._toggle_collapsed)
-        h.addWidget(self._chevron)
 
         self._title = QLabel("Todos", header)
         self._title.setObjectName("qtTitle")
@@ -222,36 +209,6 @@ class QuickTodosPanel(QFrame):
     def _wire(self) -> None:
         self._signals.quick_todos_changed.connect(self.refresh)
 
-    # ── Collapse ──────────────────────────────────────────────
-
-    def _toggle_collapsed(self) -> None:
-        self._collapsed = not self._collapsed
-        db_set_setting("qt_panel_collapsed", "1" if self._collapsed else "0")
-        self._apply_collapsed()
-
-    def _apply_collapsed(self) -> None:
-        if self._collapsed:
-            self.setFixedWidth(COLLAPSED_WIDTH)
-            self._chevron.setText("‹")
-            self._chevron.setToolTip("Expand todos")
-            self._title.setVisible(False)
-            self._count.setVisible(False)
-            self._clear_btn.setVisible(False)
-            self._input.parentWidget().setVisible(False)
-            self._voice_hint.setVisible(False)
-            self._scroll.setVisible(False)
-        else:
-            self.setFixedWidth(EXPANDED_WIDTH)
-            self._chevron.setText("›")
-            self._chevron.setToolTip("Collapse todos")
-            self._title.setVisible(True)
-            self._count.setVisible(True)
-            self._clear_btn.setVisible(True)
-            self._input.parentWidget().setVisible(True)
-            self._voice_hint.setVisible(True)
-            self._scroll.setVisible(True)
-            self._sync_empty_state()
-
     # ── Data refresh ──────────────────────────────────────────
 
     @Slot()
@@ -285,9 +242,6 @@ class QuickTodosPanel(QFrame):
         self._sync_empty_state(todos_count=len(todos))
 
     def _sync_empty_state(self, todos_count: int | None = None) -> None:
-        if self._collapsed:
-            self._empty_label.setVisible(False)
-            return
         if todos_count is None:
             todos_count = sum(
                 1 for i in range(self._list_layout.count())

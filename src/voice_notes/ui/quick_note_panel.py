@@ -1,8 +1,11 @@
-"""Quick Note workspace.
+"""Quick Note pane.
 
-Single-purpose dictation pad. No DB write, no AI parsing, no voice routing.
-You talk, the transcript appends to a body field, and Copy / Clear let you
-hand it off elsewhere.
+Lives in the bottom half of the right column. Compact dictation scratchpad
+for fire-and-forget transcripts you paste elsewhere. No DB write, no AI
+parsing, no voice routing.
+
+Active Listening transcripts land here automatically when the body has
+keyboard focus (see MainWindow._al_transcribe_worker).
 """
 
 from __future__ import annotations
@@ -16,9 +19,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QTextEdit,
     QVBoxLayout,
-    QWidget,
 )
 
 from ..core.audio import Recorder
@@ -27,16 +30,15 @@ from .helpers import apply_mic_icon, restyle
 from .signals import AppSignals
 
 
-class QuickNotePanel(QWidget):
-    """A scratchpad-style workspace for fast dictation + copy/paste."""
+class QuickNotePanel(QFrame):
+    """Compact scratchpad. Top header + body + small action row."""
 
-    # Local signals so transcription can hop back to the GUI thread without
-    # piggy-backing on AppSignals (we don't want capture_panel to react).
     transcribed = Signal(str, dict)
     transcribe_failed = Signal(str)
 
     def __init__(self, signals: AppSignals, parent=None):
         super().__init__(parent)
+        self.setObjectName("quickNotePanel")
         self._signals = signals
         self._recorder = Recorder()
         self._is_recording = False
@@ -45,6 +47,9 @@ class QuickNotePanel(QWidget):
         self._tick_timer.setInterval(1000)
         self._tick_timer.timeout.connect(self._on_tick)
 
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        self.setMinimumHeight(140)
+
         self._build()
         self._wire()
 
@@ -52,80 +57,89 @@ class QuickNotePanel(QWidget):
 
     def _build(self) -> None:
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(32, 28, 32, 28)
-        outer.setSpacing(16)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
 
-        # Header row
-        header = QHBoxLayout()
-        header.setSpacing(12)
-        h1 = QLabel("Quick Note", self)
-        h1.setProperty("class", "h1")
-        header.addWidget(h1)
-        header.addStretch(1)
-        self._status = QLabel("", self)
-        self._status.setProperty("class", "muted mono")
-        header.addWidget(self._status)
-        outer.addLayout(header)
+        # Header row (matches the qtHeader pattern visually).
+        header = QFrame(self)
+        header.setObjectName("qnHeader")
+        h = QHBoxLayout(header)
+        h.setContentsMargins(8, 10, 10, 6)
+        h.setSpacing(8)
 
-        # Card containing the body
-        card = QFrame(self)
-        card.setProperty("class", "card")
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(20, 20, 20, 20)
-        card_layout.setSpacing(14)
+        title = QLabel("Quick Note", header)
+        title.setObjectName("qnTitle")
+        h.addWidget(title)
 
-        # Body label row
-        body_row = QHBoxLayout()
-        body_row.setSpacing(8)
-        body_lbl = QLabel("Body", card)
-        body_lbl.setProperty("class", "fieldLabel")
-        body_row.addWidget(body_lbl)
-        body_row.addStretch(1)
-        self._copy_btn = QPushButton("Copy", card)
-        self._copy_btn.setObjectName("ghost")
+        self._status = QLabel("", header)
+        self._status.setObjectName("qnStatus")
+        h.addWidget(self._status, 1)
+
+        self._copy_btn = QPushButton("Copy", header)
+        self._copy_btn.setObjectName("qnCopyBtn")
         self._copy_btn.setCursor(Qt.PointingHandCursor)
         self._copy_btn.setToolTip("Copy body to clipboard")
         self._copy_btn.clicked.connect(self._on_copy)
-        body_row.addWidget(self._copy_btn)
-        card_layout.addLayout(body_row)
+        h.addWidget(self._copy_btn)
 
-        self._body = QTextEdit(card)
+        self._clear_btn = QPushButton("Clear", header)
+        self._clear_btn.setObjectName("qnClearBtn")
+        self._clear_btn.setCursor(Qt.PointingHandCursor)
+        self._clear_btn.clicked.connect(self._on_clear)
+        h.addWidget(self._clear_btn)
+
+        outer.addWidget(header)
+
+        # Body — takes all remaining space.
+        body_host = QFrame(self)
+        body_host.setObjectName("qnBodyHost")
+        bl = QVBoxLayout(body_host)
+        bl.setContentsMargins(8, 0, 8, 6)
+        bl.setSpacing(0)
+        self._body = QTextEdit(body_host)
+        self._body.setObjectName("qnBody")
         self._body.setPlaceholderText(
-            "Click the mic and talk, or type. Each transcription is appended.\n"
-            "Copy hands the text off; Clear empties this pad."
+            "Click the mic or type. Active Listening lands here when this "
+            "field is focused."
         )
-        self._body.setMinimumHeight(360)
-        card_layout.addWidget(self._body, 1)
+        bl.addWidget(self._body, 1)
+        outer.addWidget(body_host, 1)
 
-        # Action row: mic + clear
-        action_row = QHBoxLayout()
-        action_row.setSpacing(12)
+        # Mic action row at the bottom.
+        action_row = QFrame(self)
+        action_row.setObjectName("qnActionRow")
+        ar = QHBoxLayout(action_row)
+        ar.setContentsMargins(10, 4, 10, 8)
+        ar.setSpacing(8)
 
-        self._mic_btn = QPushButton(card)
+        self._mic_btn = QPushButton(action_row)
         self._mic_btn.setObjectName("micBtn")
         self._mic_btn.setCursor(Qt.PointingHandCursor)
         self._mic_btn.setToolTip("Push-to-talk dictation  (Ctrl+Shift+Space)")
         apply_mic_icon(self._mic_btn, recording=False)
         self._mic_btn.clicked.connect(self._toggle_recording)
-        action_row.addWidget(self._mic_btn)
+        ar.addWidget(self._mic_btn)
 
-        self._mic_label = QLabel("Click to dictate", card)
-        self._mic_label.setProperty("class", "muted")
-        action_row.addWidget(self._mic_label)
-        action_row.addStretch(1)
+        self._mic_label = QLabel("Click to dictate", action_row)
+        self._mic_label.setObjectName("qnMicLabel")
+        ar.addWidget(self._mic_label)
+        ar.addStretch(1)
 
-        clear_btn = QPushButton("Clear", card)
-        clear_btn.setObjectName("ghost")
-        clear_btn.setCursor(Qt.PointingHandCursor)
-        clear_btn.clicked.connect(self._on_clear)
-        action_row.addWidget(clear_btn)
-
-        card_layout.addLayout(action_row)
-        outer.addWidget(card, 1)
+        outer.addWidget(action_row)
 
     def _wire(self) -> None:
         self.transcribed.connect(self._on_transcribed)
         self.transcribe_failed.connect(self._on_transcribe_failed)
+
+    # ── Public ───────────────────────────────────────────────
+
+    def has_body_focus(self) -> bool:
+        """True if the scratchpad body currently has keyboard focus.
+
+        Used by MainWindow to route AL transcripts here when the user is
+        typing or has just clicked into the body.
+        """
+        return self._body.hasFocus()
 
     # ── Recording flow ────────────────────────────────────────
 
@@ -192,11 +206,9 @@ class QuickNotePanel(QWidget):
         self._mic_label.setText("Click to dictate")
         existing = self._body.toPlainText().rstrip()
         if existing:
-            # Append on a new line so chunks stay separable.
             self._body.setPlainText(existing + "\n" + text)
         else:
             self._body.setPlainText(text)
-        # Move cursor to end so the user sees the latest addition.
         cursor = self._body.textCursor()
         cursor.movePosition(cursor.End)
         self._body.setTextCursor(cursor)
@@ -205,9 +217,9 @@ class QuickNotePanel(QWidget):
         compute = meta.get("compute", "")
         elapsed = meta.get("elapsed_ms")
         if device and elapsed is not None:
-            self._set_status(f"Appended in {elapsed} ms ({device}/{compute}) ✓")
+            self._set_status(f"+{elapsed}ms ({device}/{compute})")
         else:
-            self._set_status("Appended ✓")
+            self._set_status("Appended")
 
     @Slot(str)
     def _on_transcribe_failed(self, msg: str) -> None:
@@ -218,14 +230,14 @@ class QuickNotePanel(QWidget):
     def _on_copy(self) -> None:
         text = self._body.toPlainText()
         if not text.strip():
-            self._set_status("Body is empty, nothing to copy")
+            self._set_status("Empty")
             return
         clip = QGuiApplication.clipboard()
         if clip is None:
             self._set_status("Clipboard unavailable")
             return
         clip.setText(text)
-        self._set_status(f"Copied {len(text)} chars to clipboard ✓")
+        self._set_status(f"Copied {len(text)} chars")
         QTimer.singleShot(
             1500,
             lambda: self._status.text().startswith("Copied ") and self._set_status(""),

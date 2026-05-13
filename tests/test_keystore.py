@@ -1,24 +1,19 @@
 """Keystore tests.
 
-The keystore module is imported once at process start and caches whether
-keyring is available. To exercise both paths cleanly we drive it through
-its public API and let the runtime keyring backend (or lack of one)
-decide the path. On CI there's no GNOME Keyring / Credential Manager, so
-the DB fallback exercises itself naturally.
+isolated_data_dir (in conftest) reloads the keystore module + forces it
+into DB-fallback mode so the developer's real Keychain / Credential
+Manager entries don't bleed into test results. CI has no keyring backend
+anyway, so it exercises the same path.
 """
 
 from __future__ import annotations
-
-import importlib
 
 import pytest
 
 
 @pytest.fixture
 def keystore(isolated_data_dir):
-    # Reload keystore so it picks up the reloaded db module from the fixture.
     import voice_notes.core.keystore as ks
-    importlib.reload(ks)
     return ks
 
 

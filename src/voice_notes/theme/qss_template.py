@@ -499,11 +499,26 @@ QPushButton#themeSeg[active="true"] {
     font-weight: 600;
 }
 
+/* ───────── Right column splitter ───────────────────────────── */
+
+QSplitter#rightColumn {
+    background: $bg_sidebar;
+    border-left: 1px solid $border_dim;
+}
+QSplitter#rightColumn::handle:vertical {
+    background: $border_dim;
+    height: 1px;
+    margin: 0 12px;
+}
+QSplitter#rightColumn::handle:vertical:hover {
+    background: $border_bright;
+}
+
 /* ───────── Quick todos right pane ──────────────────────────── */
 
 QFrame#quickTodosPanel {
-    background: $bg_sidebar;
-    border-left: 1px solid $border_dim;
+    background: transparent;
+    border: none;
 }
 QFrame#qtHeader { background: transparent; }
 QLabel#qtTitle {
@@ -608,6 +623,50 @@ QCheckBox#qtCheck::indicator:hover {
 QCheckBox#qtCheck::indicator:checked {
     background: $accent;
     border: 1px solid $accent;
+}
+
+/* ───────── Quick Note pane (bottom of right column) ────────── */
+
+QFrame#quickNotePanel {
+    background: transparent;
+    border: none;
+}
+QFrame#qnHeader { background: transparent; }
+QLabel#qnTitle {
+    font-weight: 600;
+    font-size: 14px;
+    color: $text_primary;
+}
+QLabel#qnStatus {
+    color: $text_dim;
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-size: 11px;
+}
+QPushButton#qnCopyBtn,
+QPushButton#qnClearBtn {
+    background: transparent;
+    border: none;
+    color: $text_secondary;
+    font-size: 11px;
+    padding: 2px 6px;
+}
+QPushButton#qnCopyBtn:hover,
+QPushButton#qnClearBtn:hover { color: $accent; }
+
+QFrame#qnBodyHost { background: transparent; }
+QTextEdit#qnBody {
+    background: $bg_input_solid;
+    border: 1px solid $border_dim;
+    border-radius: ${radius}px;
+    padding: 8px 10px;
+    font-size: 12px;
+}
+QTextEdit#qnBody:focus { border: 1px solid $accent; }
+
+QFrame#qnActionRow { background: transparent; }
+QLabel#qnMicLabel {
+    color: $text_dim;
+    font-size: 11px;
 }
 
 /* ───────── Misc ────────────────────────────────────────────── */

@@ -13,12 +13,22 @@ import pytest
 
 @pytest.fixture
 def isolated_data_dir(tmp_path, monkeypatch):
-    """Point VOICE_NOTES_DATA_DIR at a fresh dir and reload core.db."""
+    """Point VOICE_NOTES_DATA_DIR at a fresh dir and reload core.db.
+
+    Also disables the real OS keyring so keystore tests exercise the DB
+    fallback path. Without this, the developer's actual Keychain /
+    Credential Manager entries leak into test results.
+    """
     monkeypatch.setenv("VOICE_NOTES_DATA_DIR", str(tmp_path))
     # Force re-import of db so it picks up the new env var.
     import importlib
     import voice_notes.core.db as db_mod
     importlib.reload(db_mod)
     db_mod.init_db()
+    # Force keystore into DB-fallback mode for deterministic tests.
+    import voice_notes.core.keystore as ks_mod
+    importlib.reload(ks_mod)
+    monkeypatch.setattr(ks_mod, "_KEYRING", None, raising=False)
+    monkeypatch.setattr(ks_mod, "_KEYRING_OK", False, raising=False)
     yield db_mod
     # No teardown — tmp_path is cleaned by pytest.

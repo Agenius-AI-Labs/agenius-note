@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QSplitter,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -43,7 +44,7 @@ from .sidebar import Sidebar
 
 
 class MainWindow(QMainWindow):
-    NAV_TO_INDEX = {"capture": 0, "quick_note": 1, "task": 2, "note": 3}
+    NAV_TO_INDEX = {"capture": 0, "task": 1, "note": 2}
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -91,8 +92,6 @@ class MainWindow(QMainWindow):
         self._stack = QStackedWidget(right_col)
         self._capture = CapturePanel(self.signals, self._stack)
         self._stack.addWidget(self._capture)
-        self._quick_note = QuickNotePanel(self.signals, self._stack)
-        self._stack.addWidget(self._quick_note)
         self._tasks = ListPanel("task", self.signals, self._stack)
         self._notes = ListPanel("note", self.signals, self._stack)
         self._stack.addWidget(self._tasks)
@@ -101,9 +100,23 @@ class MainWindow(QMainWindow):
 
         outer.addWidget(right_col, 1)
 
-        # Right-side quick todos pane (collapsible).
-        self._todos_panel = QuickTodosPanel(self.signals, central)
-        outer.addWidget(self._todos_panel)
+        # Right column: vertical splitter, Todos on top, Quick Note on bottom.
+        # 50/50 default; user can drag the divider.
+        self._right_column = QSplitter(Qt.Vertical, central)
+        self._right_column.setObjectName("rightColumn")
+        self._right_column.setFixedWidth(280)
+        self._right_column.setHandleWidth(4)
+        self._right_column.setChildrenCollapsible(False)
+        self._todos_panel = QuickTodosPanel(self.signals)
+        self._quick_note = QuickNotePanel(self.signals)
+        self._right_column.addWidget(self._todos_panel)
+        self._right_column.addWidget(self._quick_note)
+        self._right_column.setStretchFactor(0, 1)
+        self._right_column.setStretchFactor(1, 1)
+        # Hint the splitter to start at 50/50; sizes are remembered across
+        # restarts via Qt's settings if we wire it later.
+        self._right_column.setSizes([400, 400])
+        outer.addWidget(self._right_column)
 
         self.setCentralWidget(central)
 
@@ -136,9 +149,8 @@ class MainWindow(QMainWindow):
         """App-focused hotkeys. (Global system-wide hotkeys would need a
         separate library like pynput; not in scope for v0.1.)"""
 
-        # Push-to-talk: trigger the mic on whichever workspace is active
-        # (Capture or Quick Note). Ctrl on Win/Linux, Cmd on macOS via Qt
-        # auto-mapping.
+        # Push-to-talk: target Quick Note if its body is focused, else
+        # Capture. Ctrl on Win/Linux, Cmd on macOS via Qt auto-mapping.
         ptt = QShortcut(QKeySequence("Ctrl+Shift+Space"), self)
         ptt.setContext(Qt.ApplicationShortcut)
         ptt.activated.connect(self._hotkey_dictate)
@@ -149,22 +161,23 @@ class MainWindow(QMainWindow):
         al.activated.connect(self._hotkey_toggle_al)
 
         # Workspace switching
-        for i, key in enumerate(("capture", "quick_note", "task", "note"), start=1):
+        for i, key in enumerate(("capture", "task", "note"), start=1):
             sc = QShortcut(QKeySequence(f"Ctrl+{i}"), self)
             sc.setContext(Qt.ApplicationShortcut)
             sc.activated.connect(lambda k=key: self._sidebar.nav_changed.emit(k) or self._sidebar.set_active(k))
 
     @Slot()
     def _hotkey_dictate(self) -> None:
-        active = getattr(self._sidebar, "_active_key", "capture")
-        if active == "quick_note":
+        # Focus wins. If Quick Note body has focus, dictate there. Otherwise
+        # default to the Capture workspace, navigating there if needed.
+        if self._quick_note.has_body_focus():
             self._quick_note._toggle_recording()
-        else:
-            # Default to Capture even if user is on Tasks/Notes list
-            if active not in ("capture", "quick_note"):
-                self._sidebar.nav_changed.emit("capture")
-                self._sidebar.set_active("capture")
-            self._capture._toggle_recording()
+            return
+        active = getattr(self._sidebar, "_active_key", "capture")
+        if active != "capture":
+            self._sidebar.nav_changed.emit("capture")
+            self._sidebar.set_active("capture")
+        self._capture._toggle_recording()
 
     @Slot()
     def _hotkey_toggle_al(self) -> None:
@@ -383,6 +396,11 @@ class MainWindow(QMainWindow):
             self._restart_listener_only()
             return
 
+        # Capture Quick Note focus on the GUI thread before launching the
+        # worker. Worker can't safely query Qt focus state from its own
+        # thread, so we snapshot here and pass via an instance attribute.
+        self._al_target_quick_note = bool(self._quick_note.has_body_focus())
+
         self.signals.al_state_changed.emit("transcribing")
         self._al_bar.set_state("transcribing")
         self._sidebar.set_status("Transcribing…", "checking")
@@ -421,11 +439,11 @@ class MainWindow(QMainWindow):
             self.signals.al_cycle_complete.emit()
             return
 
-        # Workspace-aware routing: if the user is currently on the Quick Note
-        # workspace, AL transcripts go there (raw text, no AI parse). Anywhere
-        # else, fall through to the Capture path (transcription_done + parse).
-        active = getattr(self._sidebar, "_active_key", "capture")
-        if active == "quick_note":
+        # Focus-aware routing: if the user has the Quick Note body focused,
+        # AL transcripts go there (raw text, no AI parse). The focus check
+        # was captured on the GUI thread before this worker started, since
+        # Qt focus state isn't thread-safe to read here.
+        if getattr(self, "_al_target_quick_note", False):
             self._quick_note.transcribed.emit(text, meta)
             self.signals.al_cycle_complete.emit()
             return

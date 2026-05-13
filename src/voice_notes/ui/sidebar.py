@@ -51,10 +51,9 @@ class Sidebar(QFrame):
     settings_requested   = Signal()
 
     NAV_ITEMS = (
-        ("capture",    "🎙  Capture"),
-        ("quick_note", "⚡  Quick Note"),
-        ("task",       "✓  Tasks"),
-        ("note",       "📝  Notes"),
+        ("capture", "🎙  Capture"),
+        ("task",    "✓  Tasks"),
+        ("note",    "📝  Notes"),
     )
 
     def __init__(self, parent=None, version: str = "v3.0.0-dev"):

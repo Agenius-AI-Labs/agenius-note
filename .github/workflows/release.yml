@@ -1,0 +1,184 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or branch to build (e.g. v0.1.0 or main)"
+        required: true
+        default: "main"
+
+permissions:
+  contents: write   # so the workflow can attach binaries to the release
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset_ext: zip
+            artifact_name: voice-notes-windows
+          - os: macos-latest
+            asset_ext: zip
+            artifact_name: voice-notes-macos
+          - os: ubuntu-latest
+            asset_ext: tar.gz
+            artifact_name: voice-notes-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Linux audio + GUI libs
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl1 libxkbcommon0 libpulse0 libportaudio2 \
+            libfontconfig1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 \
+            libxcb-xkb1 libxkbcommon-x11-0
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Lockfile pins everything we need at known-good versions.
+          pip install -r requirements.lock.txt
+          # Install the package itself so PyInstaller can resolve voice_notes.*
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build (Windows / Linux)
+        if: runner.os != 'macOS'
+        shell: bash
+        run: |
+          pyinstaller \
+            --name voice-notes \
+            --windowed \
+            --noconfirm \
+            --clean \
+            --icon src/voice_notes/assets/icon.ico \
+            --add-data "src/voice_notes/assets:voice_notes/assets" \
+            --collect-all faster_whisper \
+            --collect-all openwakeword \
+            --collect-all PySide6 \
+            --collect-submodules ctranslate2 \
+            scripts/entry.py
+
+      - name: Convert icon to icns + build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p icon.iconset
+          for sz in 16 32 64 128 256 512; do
+            sips -z $sz $sz src/voice_notes/assets/icon.png --out icon.iconset/icon_${sz}x${sz}.png >/dev/null
+            two=$((sz * 2))
+            if [ $two -le 1024 ]; then
+              sips -z $two $two src/voice_notes/assets/icon.png --out icon.iconset/icon_${sz}x${sz}@2x.png >/dev/null
+            fi
+          done
+          iconutil -c icns icon.iconset -o voice-notes.icns
+          pyinstaller \
+            --name voice-notes \
+            --windowed \
+            --noconfirm \
+            --clean \
+            --icon voice-notes.icns \
+            --add-data "src/voice_notes/assets:voice_notes/assets" \
+            --collect-all faster_whisper \
+            --collect-all openwakeword \
+            --collect-all PySide6 \
+            --collect-submodules ctranslate2 \
+            --osx-bundle-identifier com.ageniusailabs.voice-notes \
+            scripts/entry.py
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.ref || github.ref_name }}".TrimStart('v')
+          $name = "VoiceNotesDesktop-$tag-windows"
+          Compress-Archive -Path dist/voice-notes/* -DestinationPath "$name.zip"
+          echo "ASSET_PATH=$name.zip" >> $env:GITHUB_ENV
+          echo "ASSET_NAME=$name.zip" >> $env:GITHUB_ENV
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.ref || github.ref_name }}"
+          TAG="${TAG#v}"
+          NAME="VoiceNotesDesktop-${TAG}-macos"
+          # PyInstaller produced dist/voice-notes.app on macOS in windowed mode.
+          cd dist
+          zip -r -q "../${NAME}.zip" voice-notes.app
+          cd ..
+          echo "ASSET_PATH=${NAME}.zip" >> $GITHUB_ENV
+          echo "ASSET_NAME=${NAME}.zip" >> $GITHUB_ENV
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.ref || github.ref_name }}"
+          TAG="${TAG#v}"
+          NAME="VoiceNotesDesktop-${TAG}-linux"
+          cd dist
+          tar -czf "../${NAME}.tar.gz" voice-notes/
+          cd ..
+          echo "ASSET_PATH=${NAME}.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_NAME=${NAME}.tar.gz" >> $GITHUB_ENV
+
+      - name: Upload artifact (per-OS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ env.ASSET_PATH }}
+          if-no-files-found: error
+
+  publish:
+    name: Attach to GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: List artifacts
+        run: ls -la artifacts/*/
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/voice-notes-windows/*
+            artifacts/voice-notes-macos/*
+            artifacts/voice-notes-linux/*
+          body: |
+            Voice Notes Desktop ${{ github.ref_name }}
+
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+            **Install:**
+            - Windows: download the `*-windows.zip`, unzip, run `voice-notes.exe`.
+            - macOS: download the `*-macos.zip`, unzip, drag `voice-notes.app` to Applications. Right-click → Open the first time (we aren't notarized yet).
+            - Linux: download the `*-linux.tar.gz`, extract, run `./voice-notes/voice-notes`.
+
+            Or `pip install voice-notes-desktop` if you have Python 3.10+.
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}

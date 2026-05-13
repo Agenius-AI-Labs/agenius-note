@@ -4,7 +4,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Build / Release
+- `.github/workflows/release.yml` builds PyInstaller bundles for Windows, macOS, and Linux on every `v*` git tag. Output artifacts attach to a GitHub Release: `VoiceNotesDesktop-x.y.z-windows.zip`, `-macos.zip`, `-linux.tar.gz`.
+- `scripts/entry.py` is the PyInstaller target (shim around `voice_notes.__main__:main`).
+- macOS icon converted from `icon.png` to `.icns` via `iconutil` in the macOS job.
+- Linux job installs the libxcb-* + audio libs needed for Qt + sounddevice at build time.
+- No code signing yet (documented under audit H1 follow-ups). Users will see SmartScreen / Gatekeeper warnings on first run.
+
 ### UX
+- **Ollama model dropdown** in both the wizard and Settings (editable QComboBox). Test populates it with installed models so users can pick rather than type a model name from memory.
 - **Ollama: Test connection** button in both the setup wizard and Settings. Probes the configured URL on a worker thread; shows ✓ with model count + latency, or ✗ with reason on failure. Also calls out "reachable but no models installed, run `ollama pull llama3.2`".
 - **Install Ollama link** sits beneath the URL field in both surfaces. Deep-links to `ollama.com/download` for users who picked the Ollama backend but don't have it installed.
 

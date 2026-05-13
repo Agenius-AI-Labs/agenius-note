@@ -98,6 +98,28 @@ Open an issue with:
 
 Open an issue with the `feature_request` template before writing code. Keeps us from disagreeing about scope after you've already invested hours.
 
+## Releases
+
+Cutting a release:
+
+1. Bump the version in `pyproject.toml` (`[project] version = "x.y.z"`).
+2. Move the relevant `## [Unreleased]` section in `CHANGELOG.md` to a new `## [x.y.z] - YYYY-MM-DD` heading. Add a new empty `## [Unreleased]` above it.
+3. Regenerate the lockfile if any deps changed: `pip-compile --extra all --output-file=requirements.lock.txt pyproject.toml`.
+4. Commit and push to `main`. CI must be green.
+5. Tag: `git tag vx.y.z && git push origin vx.y.z`.
+6. The `Release` workflow runs automatically: builds PyInstaller bundles for Windows / macOS / Linux, zips them, and attaches everything to a GitHub Release.
+7. Edit the release notes on GitHub if you want to highlight things beyond the CHANGELOG link.
+
+To do a manual build (e.g. testing a release branch before tagging), go to **Actions → Release → Run workflow** and pick a ref. Outputs go to workflow artifacts; nothing attaches to a release unless a tag fired the run.
+
+### What gets built
+
+- `VoiceNotesDesktop-x.y.z-windows.zip` — PyInstaller onedir bundle, `voice-notes.exe` plus shared libs.
+- `VoiceNotesDesktop-x.y.z-macos.zip` — `voice-notes.app` bundle.
+- `VoiceNotesDesktop-x.y.z-linux.tar.gz` — PyInstaller onedir bundle.
+
+None of these are code-signed or notarized yet. SmartScreen on Windows and Gatekeeper on macOS will warn. Documented in [docs/security-audit-v1.md](docs/security-audit-v1.md) under H1 follow-ups.
+
 ## Code of Conduct
 
 See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Be decent. Disagreements about technical decisions are welcome; personal attacks aren't.

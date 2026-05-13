@@ -16,6 +16,7 @@ env/
 *.db
 *.db-shm
 *.db-wal
+agenius_note.db
 voice_notes.db
 .env
 .env.local

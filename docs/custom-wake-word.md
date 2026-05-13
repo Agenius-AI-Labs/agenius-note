@@ -1,10 +1,10 @@
 # Training a custom wake word ("Hey Biggie")
 
-Voice Notes uses [openWakeWord](https://github.com/dscripka/openWakeWord) for hotword detection. The built-in models cover `alexa`, `hey_jarvis`, `hey_mycroft`, and `hey_rhasspy`. For anything else you train your own model. openWakeWord's authors maintain a Colab notebook that does this end-to-end with synthetic training audio, so you don't need to record yourself thousands of times.
+AgeniusNote uses [openWakeWord](https://github.com/dscripka/openWakeWord) for hotword detection. The built-in models cover `alexa`, `hey_jarvis`, `hey_mycroft`, and `hey_rhasspy`. For anything else you train your own model. openWakeWord's authors maintain a Colab notebook that does this end-to-end with synthetic training audio, so you don't need to record yourself thousands of times.
 
 ## What you'll end up with
 
-A single `.onnx` file (e.g., `hey_biggie.onnx`). Drop it anywhere on disk, point Voice Notes at it in Settings, and it becomes your wake word.
+A single `.onnx` file (e.g., `hey_biggie.onnx`). Drop it anywhere on disk, point AgeniusNote at it in Settings, and it becomes your wake word.
 
 ## Steps
 
@@ -28,9 +28,9 @@ A single `.onnx` file (e.g., `hey_biggie.onnx`). Drop it anywhere on disk, point
 5. When training finishes, the notebook saves `hey_biggie.onnx` to the Colab session. The last cell zips and offers it for download.
 
 6. Download `hey_biggie.onnx` to a stable location on McNasty, e.g.:
-   `M:\Code\Agenius-AI-Labs\apps\voice-notes-desktop\models\hey_biggie.onnx`
+   `M:\Code\agenius-note\models\hey_biggie.onnx`
 
-7. In Voice Notes:
+7. In AgeniusNote:
    - Click the gear (bottom-left sidebar).
    - Active Listening → "Custom model file" → Browse → pick the `.onnx`.
    - Save. The listener restarts with the new model.

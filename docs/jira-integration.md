@@ -12,10 +12,10 @@ In your Atlassian site:
 
 1. Top-right **Projects** → **Create project**.
 2. Template: **Scrum**, **Kanban**, or **Bug tracking** depending on how you plan to work it. Kanban is the lowest-ceremony.
-3. Project key: short, all-caps, memorable. Suggestion: `VND` (Voice Notes Desktop).
+3. Project key: short, all-caps, memorable. Suggestion: `AGN` (AgeniusNote). The existing `VND` (legacy Voice Notes Desktop) project key is fine to keep if already created.
 4. Workflow: default is fine for v1 (To Do → In Progress → Done). Customize later.
 
-Repeat per repo you want to track. Voice Notes Desktop, AgeniusDesk, future tools, etc.
+Repeat per repo you want to track. AgeniusNote, AgeniusDesk, future tools, etc.
 
 ### 2. Install Atlassian's "GitHub for Jira" app
 
@@ -26,7 +26,7 @@ This is the official, free integration. It mirrors GitHub Issues into JIRA and l
 3. Click **Get app** → **Get it now**.
 4. After install, **Configure** → **Connect GitHub organization**.
 5. Authenticate as a GitHub admin and pick the **Agenius-AI-Labs** org.
-6. Choose which repos to sync. Start with `voice-notes-desktop`.
+6. Choose which repos to sync. Start with `agenius-note`.
 
 After the app finishes its initial scan (a few minutes for a young repo), branches, commits, and PRs that mention a JIRA key (`VND-123`) show up in the corresponding JIRA ticket's development panel.
 

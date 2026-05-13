@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from voice_notes.core.wakeword import display_label_for, _looks_like_path
+from agenius_note.core.wakeword import display_label_for, _looks_like_path
 
 
 def test_looks_like_path_extensions():

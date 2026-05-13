@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "voice-notes-desktop"
+name = "agenius-note"
 version = "0.1.0"
-description = "Voice-first scratchpad: local speech-to-text, optional AI parsing, quick todos, custom wake words. Cross-platform desktop app."
+description = "AgeniusNote: voice-first scratchpad with local speech-to-text, optional AI parsing, quick todos, custom wake words. Cross-platform desktop app."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -76,24 +76,24 @@ dev = [
 ]
 
 [project.scripts]
-voice-notes = "voice_notes.__main__:main"
+agenius-note = "agenius_note.__main__:main"
 
 [project.gui-scripts]
-voice-notes-gui = "voice_notes.__main__:main"
+agenius-note-gui = "agenius_note.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/Agenius-AI-Labs/voice-notes-desktop"
-Documentation = "https://github.com/Agenius-AI-Labs/voice-notes-desktop/tree/main/docs"
-Repository = "https://github.com/Agenius-AI-Labs/voice-notes-desktop"
-Issues = "https://github.com/Agenius-AI-Labs/voice-notes-desktop/issues"
-Changelog = "https://github.com/Agenius-AI-Labs/voice-notes-desktop/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Agenius-AI-Labs/agenius-note"
+Documentation = "https://github.com/Agenius-AI-Labs/agenius-note/tree/main/docs"
+Repository = "https://github.com/Agenius-AI-Labs/agenius-note"
+Issues = "https://github.com/Agenius-AI-Labs/agenius-note/issues"
+Changelog = "https://github.com/Agenius-AI-Labs/agenius-note/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/voice_notes"]
+packages = ["src/agenius_note"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "src/voice_notes",
+    "src/agenius_note",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",

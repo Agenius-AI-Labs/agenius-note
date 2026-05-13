@@ -9,8 +9,10 @@ If no keyring backend is available (e.g., a headless Linux box without
 secret-service) the helpers fall back to the SQLite `settings` table.
 Read order in the parsers is: env var → keyring → DB.
 
-Service name on all three platforms is `voice-notes-desktop`. Accounts are
-the short slugs `openai`, `anthropic`, `elevenlabs`.
+Service name on all three platforms is `agenius-note`. Accounts are
+the short slugs `openai`, `anthropic`, `elevenlabs`. The pre-rename service
+`voice-notes-desktop` is migrated into the new service on first launch
+(see migrate_legacy_service).
 
 Never log the value. Errors log only the account name.
 """
@@ -22,7 +24,8 @@ from .logging_config import get_logger
 
 _log = get_logger("keystore")
 
-SERVICE_NAME = "voice-notes-desktop"
+SERVICE_NAME = "agenius-note"
+_LEGACY_SERVICE_NAME = "voice-notes-desktop"
 
 # Account → DB setting key used for the fallback row.
 _ACCOUNTS: dict[str, str] = {
@@ -72,6 +75,11 @@ def get_secret(account: str) -> str:
             value = _KEYRING.get_password(SERVICE_NAME, account)
             if value:
                 return value
+            # Pre-rename installs stored under the legacy service. Fall through
+            # to it; migrate_legacy_service() will move it on the next startup.
+            legacy = _KEYRING.get_password(_LEGACY_SERVICE_NAME, account)
+            if legacy:
+                return legacy
         except Exception as exc:
             _log.warning("keyring read failed for %s, falling through to DB: %s", account, exc)
     # Fallback / migration path.
@@ -104,6 +112,41 @@ def delete_secret(account: str) -> None:
             # delete_password raises if the entry doesn't exist; that's fine.
             pass
     db_set_setting(_db_key_for(account), "")
+
+
+def migrate_legacy_service() -> int:
+    """Copy keyring entries from the pre-rename service into the new one.
+
+    Returns the number of accounts migrated. Idempotent; safe to call on every
+    startup. Clears the legacy entry after a successful copy so we don't keep
+    two copies of the secret around.
+    """
+    if not _KEYRING_OK or _KEYRING is None:
+        return 0
+    migrated = 0
+    for account in _ACCOUNTS:
+        try:
+            new_val = _KEYRING.get_password(SERVICE_NAME, account)
+            if new_val:
+                # Already migrated; drop any stale legacy copy.
+                try:
+                    _KEYRING.delete_password(_LEGACY_SERVICE_NAME, account)
+                except Exception:
+                    pass
+                continue
+            legacy_val = _KEYRING.get_password(_LEGACY_SERVICE_NAME, account)
+            if not legacy_val:
+                continue
+            _KEYRING.set_password(SERVICE_NAME, account, legacy_val)
+            try:
+                _KEYRING.delete_password(_LEGACY_SERVICE_NAME, account)
+            except Exception:
+                pass
+            migrated += 1
+            _log.info("migrated %s from legacy keyring service", account)
+        except Exception as exc:
+            _log.warning("legacy keyring migration of %s failed: %s", account, exc)
+    return migrated
 
 
 def migrate_db_to_keyring() -> int:

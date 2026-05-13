@@ -1,10 +1,10 @@
-"""Generate the Voice Notes desktop icon.
+"""Generate the AgeniusNote desktop icon.
 
 Draws an AgeniusDesk-styled microphone glyph on a dark rounded-square,
-saves a multi-size .ico at voice_notes_v3/assets/icon.ico.
+saves a multi-size .ico at src/agenius_note/assets/icon.ico.
 
 Run:
-    python apps/voice-notes-desktop/scripts/build_icon.py
+    python scripts/build_icon.py
 """
 
 from __future__ import annotations
@@ -148,7 +148,7 @@ def make_mic_glyph(size: int = 192, color: tuple = ACCENT) -> Image.Image:
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    out_dir = repo_root / "voice_notes_v3" / "assets"
+    out_dir = repo_root / "src" / "agenius_note" / "assets"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     big = make_icon(512)

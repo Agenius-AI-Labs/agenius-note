@@ -78,11 +78,11 @@ class Sidebar(QFrame):
         logo_row = QWidget(self)
         logo_layout = QHBoxLayout(logo_row)
         logo_layout.setContentsMargins(16, 18, 16, 4)
-        logo_layout.setSpacing(6)  # whitespace between "Voice" and "Notes"
+        logo_layout.setSpacing(2)  # tight kerning between "Agenius" and "Note"
 
-        logo_a = QLabel("Voice", logo_row)
+        logo_a = QLabel("Agenius", logo_row)
         logo_a.setObjectName("sidebarLogo")
-        logo_b = QLabel("Notes", logo_row)
+        logo_b = QLabel("Note", logo_row)
         logo_b.setObjectName("sidebarLogoAccent")
         logo_layout.addWidget(logo_a)
         logo_layout.addWidget(logo_b)

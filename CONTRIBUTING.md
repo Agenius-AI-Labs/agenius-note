@@ -1,17 +1,17 @@
-# Contributing to Voice Notes Desktop
+# Contributing to AgeniusNote
 
 Thanks for the interest. This is a working desktop app, not a toy, so the bar for PRs is "would I run this on my own machine tomorrow?"
 
 ## Quick start
 
 ```bash
-git clone https://github.com/Agenius-AI-Labs/voice-notes-desktop.git
-cd voice-notes-desktop
+git clone https://github.com/Agenius-AI-Labs/agenius-note.git
+cd agenius-note
 python -m venv .venv
 # Windows:  .venv\Scripts\activate
 # Unix:     source .venv/bin/activate
 pip install -e ".[all,dev]"
-voice-notes
+agenius-note
 ```
 
 Python 3.10+. A microphone helps if you want to test the dictation path.
@@ -19,7 +19,7 @@ Python 3.10+. A microphone helps if you want to test the dictation path.
 ## Project layout
 
 ```
-src/voice_notes/
+src/agenius_note/
 ├── core/        # Audio capture, STT, AI parse, DB, wake-word, downloads
 ├── theme/       # QSS template + token sets (dark, light, cyberpunk)
 └── ui/          # PySide6 widgets: panels, sidebar, dialogs, wizard
@@ -30,7 +30,7 @@ Tests in `tests/`. Docs in `docs/`. Build scripts in `scripts/`.
 ## Threading rules (read this before touching audio/STT/AL)
 
 - Long-running work (audio capture, transcription, AI parse, model downloads) runs in `threading.Thread(daemon=True)`.
-- Worker threads **never** touch widgets. They emit Qt signals defined on `AppSignals` (`src/voice_notes/ui/signals.py`); Qt routes the slots back to the GUI thread via `QueuedConnection`.
+- Worker threads **never** touch widgets. They emit Qt signals defined on `AppSignals` (`src/agenius_note/ui/signals.py`); Qt routes the slots back to the GUI thread via `QueuedConnection`.
 - The GUI thread owns all widget mutations. Property changes that drive QSS selectors require a `restyle()` call (see `ui/helpers.py`).
 
 Break these rules and you'll get `QObject::startTimer: Timers cannot be started from another thread` or random segfaults. Don't.
@@ -89,7 +89,7 @@ Squash-merge by default. Commit messages on `main` follow `area: short summary` 
 Open an issue with:
 - OS + version (Windows 11 23H2, macOS 14.5, Ubuntu 24.04, etc.)
 - Python version (`python --version`) if running from source
-- App version (Settings → About in a future release; for now, `pip show voice-notes-desktop`)
+- App version (Settings → About in a future release; for now, `pip show agenius-note`)
 - Steps to reproduce
 - Expected vs. actual
 - Logs if the app crashed: stderr capture or the Windows Event Viewer trace
@@ -114,10 +114,10 @@ To do a manual build (e.g. testing a release branch before tagging), go to **Act
 
 ### What gets built
 
-- `VoiceNotesDesktop-x.y.z-windows.zip` — PyInstaller onedir bundle, `voice-notes.exe` plus shared libs.
-- `VoiceNotesDesktop-x.y.z-macos.zip` — `voice-notes.app` bundle.
-- `VoiceNotesDesktop-x.y.z-linux.tar.gz` — PyInstaller onedir bundle.
-- A wheel + sdist published to [PyPI](https://pypi.org/project/voice-notes-desktop/) so `pip install voice-notes-desktop` works.
+- `AgeniusNote-x.y.z-windows.zip`, PyInstaller onedir bundle, `agenius-note.exe` plus shared libs.
+- `AgeniusNote-x.y.z-macos.zip`, `agenius-note.app` bundle.
+- `AgeniusNote-x.y.z-linux.tar.gz`, PyInstaller onedir bundle.
+- A wheel + sdist published to [PyPI](https://pypi.org/project/agenius-note/) so `pip install agenius-note` works.
 
 None of the binaries are code-signed or notarized yet. SmartScreen on Windows and Gatekeeper on macOS will warn. Documented in [docs/security-audit-v1.md](docs/security-audit-v1.md) under H1 follow-ups.
 
@@ -129,7 +129,7 @@ Trusted publishing (OIDC) replaces the old API-token model. To enable PyPI publi
    `python -m build && twine upload dist/*` (needs a one-off API token; revoke after).
 2. On PyPI → your project → **Manage** → **Publishing** → **Add a new publisher** → **GitHub**:
    - Owner: `Agenius-AI-Labs`
-   - Repository: `voice-notes-desktop`
+   - Repository: `agenius-note`
    - Workflow name: `release.yml`
    - Environment: `pypi`
 3. On GitHub → repo Settings → **Environments** → **New environment** → name it `pypi`. Optionally add protection rules (required reviewers, branch restrictions).

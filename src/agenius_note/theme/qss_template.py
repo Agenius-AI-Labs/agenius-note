@@ -16,7 +16,7 @@ from string import Template
 
 _QSS_TEMPLATE = Template(r"""
 /* ============================================================
-   AgeniusDesk for PySide6  ·  Voice Notes v3
+   AgeniusDesk for PySide6  ·  AgeniusNote v3
    ============================================================ */
 
 QWidget {

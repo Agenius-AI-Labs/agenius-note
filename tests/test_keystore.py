@@ -13,7 +13,7 @@ import pytest
 
 @pytest.fixture
 def keystore(isolated_data_dir):
-    import voice_notes.core.keystore as ks
+    import agenius_note.core.keystore as ks
     return ks
 
 

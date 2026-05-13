@@ -2,10 +2,10 @@
 
 ## Reporting a vulnerability
 
-Please do not file a public GitHub issue for security problems. Use [GitHub Security Advisories](https://github.com/Agenius-AI-Labs/voice-notes-desktop/security/advisories/new) to report privately, or email `security@ageniuslabs.com`.
+Please do not file a public GitHub issue for security problems. Use [GitHub Security Advisories](https://github.com/Agenius-AI-Labs/agenius-note/security/advisories/new) to report privately, or email `security@ageniuslabs.com`.
 
 Include:
-- Affected version (output of `pip show voice-notes-desktop` or the installer filename)
+- Affected version (output of `pip show agenius-note` or the installer filename)
 - OS and Python version
 - Steps to reproduce
 - Impact assessment (what an attacker could do)

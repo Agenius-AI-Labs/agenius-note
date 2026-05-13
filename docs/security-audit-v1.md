@@ -1,7 +1,7 @@
 # Security Audit — v0.1.0 baseline
 
 Date: 2026-05-13
-Scope: source tree at commit `bce2b35` (everything under `src/voice_notes/`).
+Scope: source tree at commit `bce2b35` (everything under `src/agenius_note/`).
 Auditor: Claude Code agent under Michael Frostbutter direction.
 
 This is a first-party audit. It covers application code only. Upstream
@@ -198,7 +198,7 @@ A URL-quoted interpolation would be defense-in-depth.
 ```bash
 # Re-run the patterns this audit used:
 rg -n 'eval|exec|os\.system|subprocess|pickle\.|shell=True|__import__' src/
-rg -n 'execute\(|sqlite3' src/voice_notes/core/db.py
+rg -n 'execute\(|sqlite3' src/agenius_note/core/db.py
 rg -n 'api_key|API_KEY|password|token|secret' src/
 rg -n 'requests\.|httpx\.|urlopen|http://|https://' src/
 rg -n 'tempfile|NamedTemporaryFile' src/

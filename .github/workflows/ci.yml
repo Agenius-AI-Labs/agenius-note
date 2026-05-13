@@ -34,7 +34,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       QT_QPA_PLATFORM: offscreen
-      VOICE_NOTES_LOG_LEVEL: WARNING
+      AGENIUS_NOTE_LOG_LEVEL: WARNING
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

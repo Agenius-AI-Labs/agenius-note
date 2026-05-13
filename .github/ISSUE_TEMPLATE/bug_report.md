@@ -24,12 +24,12 @@ A clear, short description of the bug.
 
 - OS: (e.g., Windows 11 23H2, macOS 14.5, Ubuntu 24.04)
 - Install method: (binary from Releases / `pip install` / git clone + `pip install -e .`)
-- Version: (output of `pip show voice-notes-desktop`, or the installer filename)
+- Version: (output of `pip show agenius-note`, or the bundle filename)
 - Python version (if running from source): (`python --version`)
 
 ## Logs
 
-Paste relevant output from `<user-data>/voice-notes/voice-notes.log` (most
+Paste relevant output from `<user-data>/agenius-note/agenius-note.log` (most
 recent entries first) or terminal stderr. Redact any API keys.
 
 ## Screenshots

@@ -4,9 +4,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Renamed
+- **Project renamed from `voice-notes-desktop` to `agenius-note` (display name: AgeniusNote).**
+  - PyPI distribution name: `agenius-note` (was `voice-notes-desktop`)
+  - Console scripts: `agenius-note` / `agenius-note-gui` (were `voice-notes` / `voice-notes-gui`)
+  - Python package: `agenius_note` (was `voice_notes`)
+  - Keyring service: `agenius-note` (was `voice-notes-desktop`)
+  - User-data dir: `<base>/agenius-note/` (was `<base>/voice-notes/`)
+  - Env var: `AGENIUS_NOTE_DATA_DIR` and `AGENIUS_NOTE_LOG_LEVEL` (legacy `VOICE_NOTES_*` still honored as a fallback)
+  - Existing installs auto-migrate on first launch: the legacy data dir is copied to the new location (best-effort), and pre-rename keyring entries are moved into the new service.
+- Release artifacts: `AgeniusNote-x.y.z-{windows,macos,linux}.{zip,tar.gz}` (were `VoiceNotesDesktop-*`).
+
 ### Build / Release
-- `.github/workflows/release.yml` builds PyInstaller bundles for Windows, macOS, and Linux on every `v*` git tag. Output artifacts attach to a GitHub Release: `VoiceNotesDesktop-x.y.z-windows.zip`, `-macos.zip`, `-linux.tar.gz`.
-- `scripts/entry.py` is the PyInstaller target (shim around `voice_notes.__main__:main`).
+- `.github/workflows/release.yml` builds PyInstaller bundles for Windows, macOS, and Linux on every `v*` git tag. Output artifacts attach to a GitHub Release: `AgeniusNote-x.y.z-windows.zip`, `-macos.zip`, `-linux.tar.gz`.
+- `scripts/entry.py` is the PyInstaller target (shim around `agenius_note.__main__:main`).
 - macOS icon converted from `icon.png` to `.icns` via `iconutil` in the macOS job.
 - Linux job installs the libxcb-* + audio libs needed for Qt + sounddevice at build time.
 - No code signing yet (documented under audit H1 follow-ups). Users will see SmartScreen / Gatekeeper warnings on first run.
@@ -19,7 +30,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 ### Security (audit follow-ups, this release)
 - **H1 patched:** OpenAI / Anthropic API keys now live in the OS keyring
   (macOS Keychain / Windows Credential Manager / Linux Secret Service)
-  under service name `voice-notes-desktop`. New module `core/keystore.py`.
+  under service name `agenius-note` (was `voice-notes-desktop` before the
+  rename; legacy entries auto-migrate on first launch). New module
+  `core/keystore.py`.
   Falls back transparently to the SQLite `settings` table when no keyring
   backend is available. On startup we run a one-shot migration that pushes
   existing DB-stored keys into the keyring and clears the DB rows.
@@ -51,7 +64,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Initial security audit at `docs/security-audit-v1.md`: 0 critical, 2 high (1 patched, 1 documented for Phase 2 keyring migration), 3 medium (2 patched), 3 low (2 patched).
 
 ### Internal
-- Replaced `print(stderr)` early-init logging with the `logging` module. Logs now also write to `<user-data>/voice-notes.log` (rotating, 1 MB × 3). Level overridable via `$VOICE_NOTES_LOG_LEVEL`.
+- Replaced `print(stderr)` early-init logging with the `logging` module. Logs now also write to `<user-data>/agenius-note.log` (rotating, 1 MB × 3). Level overridable via `$AGENIUS_NOTE_LOG_LEVEL` (legacy `$VOICE_NOTES_LOG_LEVEL` still honored).
 - GitHub Actions CI workflow runs `ruff check` plus pytest across ubuntu/windows/macos × Python 3.10-3.13. Also runs `pip-audit` on dependencies.
 - Issue templates (bug, feature) and PR template under `.github/`.
 - First pytest suite under `tests/`: 31 tests covering voice-route prefix detection, DB schema + CRUD + the `db_update` column allowlist, and wake-word resolver helpers.
@@ -77,6 +90,6 @@ First public release. Extracted from the Agenius AI Labs monorepo.
 - Status surface shows device + elapsed ms after each transcription.
 
 ### Distribution
-- pyproject.toml with `voice-notes` console entry point.
+- pyproject.toml with `voice-notes` console entry point (renamed to `agenius-note` in the next release).
 - MIT license.
 - Cross-platform user-data directory (`%APPDATA%`, `~/Library/Application Support`, `$XDG_DATA_HOME`).

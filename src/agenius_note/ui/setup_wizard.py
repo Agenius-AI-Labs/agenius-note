@@ -91,7 +91,7 @@ class WelcomePage(QWizardPage):
         self.setTitle(" ")
         layout = QVBoxLayout(self)
         layout.setSpacing(16)
-        layout.addWidget(_h1("Welcome to Voice Notes"))
+        layout.addWidget(_h1("Welcome to AgeniusNote"))
         layout.addWidget(_muted(
             "Let's get you set up. This takes about a minute and downloads "
             "the speech-to-text model so your first mic click is instant."
@@ -227,7 +227,7 @@ class AIBackendPage(QWizardPage):
         layout.setSpacing(8)
         layout.addWidget(_h1("AI parsing (optional)"))
         layout.addWidget(_muted(
-            "Voice Notes can extract a title, tags, and priority from each "
+            "AgeniusNote can extract a title, tags, and priority from each "
             "transcript. Skip to keep raw text only. Configure later in Settings."
         ))
 
@@ -524,7 +524,7 @@ class DonePage(QWizardPage):
         layout.setSpacing(12)
         layout.addWidget(_h1("You're all set"))
         layout.addWidget(_muted(
-            "Click Finish to start using Voice Notes. Re-run this wizard any "
+            "Click Finish to start using AgeniusNote. Re-run this wizard any "
             "time from Settings → Re-run setup."
         ))
         layout.addStretch(1)
@@ -538,7 +538,7 @@ class SetupWizard(QWizard):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Voice Notes — Setup")
+        self.setWindowTitle("AgeniusNote, Setup")
         self.setMinimumSize(640, 520)
         self.setWizardStyle(QWizard.ModernStyle)
         icon_path = _ASSETS / "icon.ico"

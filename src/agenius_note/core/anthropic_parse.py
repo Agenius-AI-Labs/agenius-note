@@ -72,7 +72,7 @@ def parse_transcript_with_anthropic(transcript: str, model: str = "") -> dict:
         # Missing optional dependency; caller treats this as parser failure.
         raise RuntimeError(
             "anthropic SDK not installed. Install via "
-            "`pip install voice-notes-desktop[anthropic]` or `pip install anthropic`."
+            "`pip install agenius-note[anthropic]` or `pip install anthropic`."
         )
 
     client = Anthropic(api_key=api_key)

@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Voice Notes")
+        self.setWindowTitle("AgeniusNote")
         self.resize(1280, 820)
         self.setMinimumSize(900, 600)
 

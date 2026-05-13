@@ -5,7 +5,7 @@ A tour of the moving parts. Read this before touching code that crosses threads,
 ## Layers
 
 ```
-voice_notes/
+agenius_note/
 ├── core/           # No Qt imports. Pure logic + I/O.
 │   ├── audio.py        Mic capture (push-to-talk Recorder, VAD-stopping RecorderVAD)
 │   ├── stt.py          faster-whisper wrapper; CUDA→CPU fallback; VAD filter; timing meta
@@ -130,7 +130,7 @@ Dynamic state is driven by Qt property selectors (`QFrame#alStatusBar[state="lis
 
 | Item | Location |
 |---|---|
-| SQLite DB | `<user-data>/voice-notes/voice_notes.db` |
+| SQLite DB | `<user-data>/agenius-note/agenius_note.db` |
 | Whisper model cache | `~/.cache/huggingface/hub/` (faster-whisper default) |
 | openWakeWord models | `<openwakeword>/resources/models/` (pip-installed location) |
 | Settings | inside the SQLite `settings` table, not on disk separately |

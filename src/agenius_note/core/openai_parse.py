@@ -61,7 +61,7 @@ def parse_transcript_with_openai(transcript: str, model: str = "") -> dict:
     except ImportError:
         raise RuntimeError(
             "openai SDK not installed. Install via "
-            "`pip install voice-notes-desktop[openai]` or `pip install openai`."
+            "`pip install agenius-note[openai]` or `pip install openai`."
         )
 
     client = OpenAI(api_key=api_key)

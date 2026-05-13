@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from voice_notes.core.voice_routes import try_route_to_todo
+from agenius_note.core.voice_routes import try_route_to_todo
 
 
 @pytest.mark.parametrize(

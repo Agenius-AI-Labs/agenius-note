@@ -78,7 +78,8 @@ class MainWindow(QMainWindow):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        self._sidebar = Sidebar(central)
+        from .. import __version__
+        self._sidebar = Sidebar(central, version=f"v{__version__}")
         outer.addWidget(self._sidebar)
 
         right_col = QWidget(central)

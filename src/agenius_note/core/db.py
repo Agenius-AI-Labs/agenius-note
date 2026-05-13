@@ -44,23 +44,39 @@ def _migrate_legacy_data_dir(new_dir: Path) -> None:
 
     Copy (not move) so old installs of voice-notes-desktop keep working if the user
     rolls back. Only runs when the new dir is empty.
+
+    Security: skip symlinks. The legacy dir is the user's own, but an attacker who
+    can already write into it could plant a symlink that aimed copytree at sensitive
+    paths and got them mirrored into the new dir. Practical impact is low (attacker
+    already has user-account write access) but it costs nothing to refuse symlinks.
     """
     if any(new_dir.iterdir()):
         return
     legacy = _platform_base() / "voice-notes"
-    if not legacy.exists() or not legacy.is_dir():
+    if not legacy.exists() or not legacy.is_dir() or legacy.is_symlink():
         return
-    try:
-        for entry in legacy.iterdir():
+    for entry in legacy.iterdir():
+        try:
+            if entry.is_symlink():
+                continue
             dest = new_dir / entry.name
             if entry.is_dir():
-                shutil.copytree(entry, dest, dirs_exist_ok=True)
+                shutil.copytree(
+                    entry, dest,
+                    symlinks=False,
+                    ignore_dangling_symlinks=True,
+                    dirs_exist_ok=True,
+                )
             else:
                 shutil.copy2(entry, dest)
-    except OSError:
-        # Best-effort migration. If it fails the user just gets a fresh DB and can
-        # re-enter settings, which is recoverable.
-        pass
+        except OSError as exc:
+            # Best-effort migration. If it fails the user just gets a fresh DB and
+            # can re-enter settings, which is recoverable. Surface in stderr/log
+            # so users debugging a "where did my data go?" can find it.
+            sys.stderr.write(
+                f"agenius-note: legacy data dir migration skipped for "
+                f"{entry.name!r}: {exc}\n"
+            )
 
 
 _DATA_DIR = _user_data_dir()

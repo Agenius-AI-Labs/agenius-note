@@ -4,6 +4,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-13
+
+### Security
+- **Audit v2** at `docs/security-audit-v2.md`. Delta audit covering all
+  changes since v0.1.0: rename + data-dir / keyring migrations, Anthropic
+  Claude Haiku backend, focus-based AL routing, application-scoped hotkeys,
+  right-column splitter, Test+model UX. 1 low-severity finding (A1) patched
+  this pass. `pip-audit --strict` against the lockfile: no known
+  vulnerabilities.
+- **A1 patched:** legacy data-dir migration in `core/db.py` now refuses
+  symlinks (top-level and per-entry), passes `symlinks=False,
+  ignore_dangling_symlinks=True` to `copytree`, and surfaces `OSError`
+  on stderr instead of swallowing silently.
+
 ### Renamed
 - **Project renamed from `voice-notes-desktop` to `agenius-note` (display name: AgeniusNote).**
   - PyPI distribution name: `agenius-note` (was `voice-notes-desktop`)

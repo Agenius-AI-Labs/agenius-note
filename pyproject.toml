@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agenius-note"
-version = "0.1.0"
+version = "0.2.0"
 description = "AgeniusNote: voice-first scratchpad with local speech-to-text, optional AI parsing, quick todos, custom wake words. Cross-platform desktop app."
 readme = "README.md"
 license = { file = "LICENSE" }

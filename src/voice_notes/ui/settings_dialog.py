@@ -27,10 +27,28 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..core.anthropic_parse import probe_anthropic
 from ..core.db import db_get_setting, db_set_setting
 from ..core.keystore import get_secret, set_secret
 from ..core.ollama_parse import probe_endpoint
+from ..core.openai_parse import probe_openai
 from ..core.wakeword import get_oww_models, HAS_OWW
+
+
+_PARSER_BACKEND_LINKS = {
+    "openai": ('Get an API key at '
+               '<a href="https://platform.openai.com/api-keys" '
+               'style="color: #38bdf8; text-decoration: none;">'
+               'platform.openai.com/api-keys</a>.'),
+    "anthropic": ('Get an API key at '
+                  '<a href="https://console.anthropic.com/settings/keys" '
+                  'style="color: #38bdf8; text-decoration: none;">'
+                  'console.anthropic.com/settings/keys</a>.'),
+    "ollama": ('Need Ollama? '
+               '<a href="https://ollama.com/download" '
+               'style="color: #38bdf8; text-decoration: none;">'
+               'Download here</a>, then run <code>ollama pull llama3.2</code>.'),
+}
 from .helpers import restyle
 from .signals import AppSignals
 
@@ -77,7 +95,8 @@ class SettingsDialog(QDialog):
     """
 
     al_settings_changed = Signal()
-    ollama_probe_done = Signal(bool, str, list)
+    # backend_name, ok, msg, models
+    parser_probe_done = Signal(str, bool, str, list)
 
     def __init__(self, signals: AppSignals, al_running: bool = False, parent=None):
         super().__init__(parent)
@@ -199,9 +218,9 @@ class SettingsDialog(QDialog):
         frame, box = _section("Transcript parser (LLM)", self)
 
         self._parser_backend = QComboBox(frame)
-        self._parser_backend.addItem("Local (Ollama), preferred", "local")
-        self._parser_backend.addItem("OpenAI (gpt-4o-mini)", "openai")
-        self._parser_backend.addItem("Anthropic Claude Haiku", "anthropic")
+        self._parser_backend.addItem("Local (Ollama)", "local")
+        self._parser_backend.addItem("OpenAI", "openai")
+        self._parser_backend.addItem("Anthropic Claude", "anthropic")
         self._parser_backend.addItem("Auto: local, then OpenAI, then Anthropic", "auto")
         self._parser_backend.addItem("None, keep raw transcript", "none")
         box.addWidget(_field_row(
@@ -211,68 +230,92 @@ class SettingsDialog(QDialog):
             frame,
         ))
 
-        self._openai_api_key = QLineEdit(frame)
-        self._openai_api_key.setPlaceholderText("sk-...")
-        self._openai_api_key.setEchoMode(QLineEdit.Password)
-        box.addWidget(_field_row(
-            "OpenAI API key",
-            self._openai_api_key,
-            "Used when backend is OpenAI or auto. Read first from $OPENAI_API_KEY.",
-            frame,
-        ))
+        # OpenAI section (consistent 3-row layout)
+        self._openai_api_key, self._openai_test_btn, self._openai_status, self._openai_model = \
+            self._build_parser_backend_section(
+                frame, box,
+                input_label="OpenAI API key",
+                placeholder="sk-...",
+                password=True,
+                input_hint="Used when backend is OpenAI or auto. Reads $OPENAI_API_KEY first.",
+                model_label="OpenAI model",
+                model_placeholder="gpt-4o-mini",
+                model_hint="Pick from your account's available chat models (populates after Test) or type a name.",
+                link_html=_PARSER_BACKEND_LINKS["openai"],
+                backend_name="openai",
+            )
 
-        self._anthropic_api_key = QLineEdit(frame)
-        self._anthropic_api_key.setPlaceholderText("sk-ant-...")
-        self._anthropic_api_key.setEchoMode(QLineEdit.Password)
-        box.addWidget(_field_row(
-            "Anthropic API key",
-            self._anthropic_api_key,
-            "Used when backend is Anthropic or auto. Read first from $ANTHROPIC_API_KEY.",
-            frame,
-        ))
+        # Anthropic section
+        self._anthropic_api_key, self._anthropic_test_btn, self._anthropic_status, self._anthropic_model = \
+            self._build_parser_backend_section(
+                frame, box,
+                input_label="Anthropic API key",
+                placeholder="sk-ant-...",
+                password=True,
+                input_hint="Used when backend is Anthropic or auto. Reads $ANTHROPIC_API_KEY first.",
+                model_label="Anthropic model",
+                model_placeholder="claude-haiku-4-5",
+                model_hint="Pick from your account's models (populates after Test) or type a name.",
+                link_html=_PARSER_BACKEND_LINKS["anthropic"],
+                backend_name="anthropic",
+            )
 
-        # Ollama URL field with inline Test connection button
-        ollama_row = QWidget(frame)
-        ol = QHBoxLayout(ollama_row)
-        ol.setContentsMargins(0, 0, 0, 0)
-        ol.setSpacing(6)
-        self._ollama_url = QLineEdit(ollama_row)
-        self._ollama_url.setPlaceholderText("http://localhost:11434")
-        ol.addWidget(self._ollama_url, 1)
-        self._ollama_test_btn = QPushButton("Test", ollama_row)
-        self._ollama_test_btn.setCursor(Qt.PointingHandCursor)
-        self._ollama_test_btn.clicked.connect(self._on_test_ollama)
-        ol.addWidget(self._ollama_test_btn)
-        box.addWidget(_field_row(
-            "Ollama base URL",
-            ollama_row,
-            "Local Ollama endpoint. Click Test to verify.",
-            frame,
-        ))
-
-        self._ollama_status = QLabel(
-            'Need Ollama? '
-            '<a href="https://ollama.com/download" style="color: #38bdf8; text-decoration: none;">'
-            'Download here</a>, then run <code>ollama pull llama3.2</code>.',
-            frame,
-        )
-        self._ollama_status.setOpenExternalLinks(True)
-        self._ollama_status.setTextInteractionFlags(Qt.TextBrowserInteraction)
-        self._ollama_status.setWordWrap(True)
-        self._ollama_status.setProperty("class", "fieldHint")
-        box.addWidget(self._ollama_status)
-
-        self._ollama_model = QComboBox(frame)
-        self._ollama_model.setEditable(True)
-        self._ollama_model.lineEdit().setPlaceholderText("qwen2.5:7b-instruct-q5_K_M")
-        box.addWidget(_field_row(
-            "Ollama model",
-            self._ollama_model,
-            "Pick from your installed models (populates after Test) or type a name. JSON-capable chat models work best.",
-            frame,
-        ))
+        # Ollama section
+        self._ollama_url, self._ollama_test_btn, self._ollama_status, self._ollama_model = \
+            self._build_parser_backend_section(
+                frame, box,
+                input_label="Ollama base URL",
+                placeholder="http://localhost:11434",
+                password=False,
+                input_hint="Local Ollama endpoint. Click Test to verify.",
+                model_label="Ollama model",
+                model_placeholder="qwen2.5:7b-instruct-q5_K_M",
+                model_hint="Pick from your installed models (populates after Test) or type a name.",
+                link_html=_PARSER_BACKEND_LINKS["ollama"],
+                backend_name="ollama",
+            )
 
         return frame
+
+    def _build_parser_backend_section(
+        self, frame, box, *, input_label, placeholder, password, input_hint,
+        model_label, model_placeholder, model_hint, link_html, backend_name,
+    ):
+        """Build the consistent 3-row layout for one LLM backend.
+
+        Returns (input_widget, test_button, status_label, model_combo).
+        """
+        # Row 1: input + Test button
+        input_row = QWidget(frame)
+        ir = QHBoxLayout(input_row)
+        ir.setContentsMargins(0, 0, 0, 0)
+        ir.setSpacing(6)
+        inp = QLineEdit(input_row)
+        inp.setPlaceholderText(placeholder)
+        if password:
+            inp.setEchoMode(QLineEdit.Password)
+        ir.addWidget(inp, 1)
+        test_btn = QPushButton("Test", input_row)
+        test_btn.setCursor(Qt.PointingHandCursor)
+        test_btn.clicked.connect(lambda _checked=False, b=backend_name: self._run_parser_test(b))
+        ir.addWidget(test_btn)
+        box.addWidget(_field_row(input_label, input_row, input_hint, frame))
+
+        # Row 2: status / help link
+        status = QLabel(link_html, frame)
+        status.setOpenExternalLinks(True)
+        status.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        status.setWordWrap(True)
+        status.setProperty("class", "fieldHint")
+        box.addWidget(status)
+
+        # Row 3: model dropdown
+        model_combo = QComboBox(frame)
+        model_combo.setEditable(True)
+        model_combo.lineEdit().setPlaceholderText(model_placeholder)
+        box.addWidget(_field_row(model_label, model_combo, model_hint, frame))
+
+        return inp, test_btn, status, model_combo
 
     def _build_transcription(self) -> QFrame:
         frame, box = _section("Transcription", self)
@@ -422,7 +465,9 @@ class SettingsDialog(QDialog):
         if idx >= 0:
             self._parser_backend.setCurrentIndex(idx)
         self._openai_api_key.setText(get_secret("openai"))
+        self._openai_model.setCurrentText(db_get_setting("openai_model", "") or "")
         self._anthropic_api_key.setText(get_secret("anthropic"))
+        self._anthropic_model.setCurrentText(db_get_setting("anthropic_model", "") or "")
         self._ollama_url.setText(db_get_setting("ollama_base_url", "") or "")
         self._ollama_model.setCurrentText(db_get_setting("ollama_model", "") or "")
 
@@ -466,7 +511,9 @@ class SettingsDialog(QDialog):
         # Parser backend
         db_set_setting("parser_backend", self._parser_backend.currentData() or "auto")
         set_secret("openai", self._openai_api_key.text().strip())
+        db_set_setting("openai_model", self._openai_model.currentText().strip())
         set_secret("anthropic", self._anthropic_api_key.text().strip())
+        db_set_setting("anthropic_model", self._anthropic_model.currentText().strip())
         db_set_setting("ollama_base_url", self._ollama_url.text().strip())
         db_set_setting("ollama_model", self._ollama_model.currentText().strip())
 
@@ -496,50 +543,61 @@ class SettingsDialog(QDialog):
         # Reload settings into the dialog so picks made in the wizard appear.
         self._load()
 
-    @Slot()
-    def _on_test_ollama(self) -> None:
-        url = self._ollama_url.text().strip() or "http://localhost:11434"
-        self._ollama_test_btn.setEnabled(False)
-        self._ollama_test_btn.setText("Testing…")
+    def _parser_widgets_for(self, backend: str):
+        """Return (input, test_btn, status, model_combo) for the given backend."""
+        if backend == "openai":
+            return (self._openai_api_key, self._openai_test_btn,
+                    self._openai_status, self._openai_model)
+        if backend == "anthropic":
+            return (self._anthropic_api_key, self._anthropic_test_btn,
+                    self._anthropic_status, self._anthropic_model)
+        # ollama
+        return (self._ollama_url, self._ollama_test_btn,
+                self._ollama_status, self._ollama_model)
+
+    def _run_parser_test(self, backend: str) -> None:
+        inp, test_btn, _status, _model = self._parser_widgets_for(backend)
+        value = inp.text().strip()
+        test_btn.setEnabled(False)
+        test_btn.setText("Testing…")
         try:
-            self.ollama_probe_done.disconnect(self._on_ollama_probe_done)
+            self.parser_probe_done.disconnect(self._on_parser_probe_done)
         except (RuntimeError, TypeError):
             pass
-        self.ollama_probe_done.connect(self._on_ollama_probe_done)
+        self.parser_probe_done.connect(self._on_parser_probe_done)
 
         def worker():
-            ok, msg, models = probe_endpoint(url)
-            self.ollama_probe_done.emit(ok, msg, models)
+            if backend == "openai":
+                ok, msg, models = probe_openai(value)
+            elif backend == "anthropic":
+                ok, msg, models = probe_anthropic(value)
+            else:
+                ok, msg, models = probe_endpoint(value or "http://localhost:11434")
+            self.parser_probe_done.emit(backend, ok, msg, models)
 
         threading.Thread(target=worker, daemon=True).start()
 
-    @Slot(bool, str, list)
-    def _on_ollama_probe_done(self, ok: bool, msg: str, models: list) -> None:
-        self._ollama_test_btn.setEnabled(True)
-        self._ollama_test_btn.setText("Test")
+    @Slot(str, bool, str, list)
+    def _on_parser_probe_done(self, backend: str, ok: bool, msg: str, models: list) -> None:
+        _inp, test_btn, status, model_combo = self._parser_widgets_for(backend)
+        test_btn.setEnabled(True)
+        test_btn.setText("Test")
         prefix = "✓" if ok else "✗"
         color = "#22c55e" if ok else "#f87171"
-        self._ollama_status.setText(
+        status.setText(
             f'<span style="color: {color}">{prefix} {msg}</span><br>'
-            f'Need Ollama? '
-            f'<a href="https://ollama.com/download" style="color: #38bdf8; text-decoration: none;">'
-            f'Download here</a>, then run <code>ollama pull llama3.2</code>.'
+            f'{_PARSER_BACKEND_LINKS[backend]}'
         )
         if models:
-            current = self._ollama_model.currentText().strip()
-            self._ollama_model.clear()
-            self._ollama_model.addItems(models)
-            # Preserve user's current choice if it matches one of the listed
-            # models, otherwise the first installed model.
+            current = model_combo.currentText().strip()
+            model_combo.clear()
+            model_combo.addItems(models)
             if current and current in models:
-                self._ollama_model.setCurrentText(current)
+                model_combo.setCurrentText(current)
             elif current:
-                # User typed a model name we didn't fetch; keep their text
-                # in the editable line as a hint that they typed something
-                # custom.
-                self._ollama_model.setCurrentText(current)
+                model_combo.setCurrentText(current)
             else:
-                self._ollama_model.setCurrentIndex(0)
+                model_combo.setCurrentIndex(0)
 
     @Slot()
     def _on_browse_custom_model(self) -> None:

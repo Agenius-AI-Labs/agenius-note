@@ -10,7 +10,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
+from typing import Tuple
 
+from .db import db_get_setting
 from .keystore import get_secret
 
 _SYSTEM_PROMPT = """Parse the following voice transcript into structured note/task data.
@@ -52,12 +55,16 @@ def _extract_json(text: str) -> str:
     return text.strip()
 
 
-def parse_transcript_with_anthropic(transcript: str, model: str = "claude-haiku-4-5") -> dict:
-    """Call Claude Haiku to parse the transcript. Falls back to stub on any error."""
+def parse_transcript_with_anthropic(transcript: str, model: str = "") -> dict:
+    """Call Claude to parse the transcript. Falls back to stub on any error.
+
+    Reads the model from the `anthropic_model` setting if not passed.
+    """
     api_key = (os.getenv("ANTHROPIC_API_KEY", "").strip()
                or get_secret("anthropic"))
     if not api_key:
         return _stub(transcript)
+    model = (model or db_get_setting("anthropic_model", "claude-haiku-4-5") or "claude-haiku-4-5").strip()
 
     try:
         from anthropic import Anthropic
@@ -87,3 +94,34 @@ def parse_transcript_with_anthropic(transcript: str, model: str = "claude-haiku-
         return json.loads(_extract_json(raw))
     except Exception:
         return _stub(transcript)
+
+
+def probe_anthropic(api_key: str) -> Tuple[bool, str, list]:
+    """User-facing health check for an Anthropic API key.
+
+    Returns (ok, message, models). Calls Anthropic's models.list endpoint.
+    """
+    api_key = (api_key or "").strip()
+    if not api_key:
+        return False, "API key is empty", []
+
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return False, "anthropic SDK not installed (pip install anthropic)", []
+
+    started = time.perf_counter()
+    try:
+        client = Anthropic(api_key=api_key, timeout=8.0)
+        resp = client.models.list()
+    except Exception as exc:
+        msg = str(exc)
+        if "401" in msg or "authentication" in msg.lower() or "invalid_api_key" in msg.lower():
+            return False, "Invalid API key", []
+        return False, f"Error: {msg[:120]}", []
+
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    names = sorted({m.id for m in resp.data})
+    if not names:
+        return True, f"Reachable in {elapsed_ms} ms, but no models returned", []
+    return True, f"{len(names)} model(s), {elapsed_ms} ms", names

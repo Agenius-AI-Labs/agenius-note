@@ -32,11 +32,30 @@ from PySide6.QtWidgets import (
     QWizardPage,
 )
 
+from ..core.anthropic_parse import probe_anthropic
 from ..core.db import db_get_setting, db_set_setting
 from ..core.downloads import DownloadManager
 from ..core.keystore import get_secret, set_secret
 from ..core.ollama_parse import probe_endpoint
+from ..core.openai_parse import probe_openai
 from ..core.wakeword import HAS_OWW, get_oww_models
+
+
+# Per-backend metadata used by the consistent backend-row builder.
+_BACKEND_LINKS = {
+    "openai": ('Get an API key at '
+               '<a href="https://platform.openai.com/api-keys" '
+               'style="color: #38bdf8; text-decoration: none;">'
+               'platform.openai.com/api-keys</a>.'),
+    "anthropic": ('Get an API key at '
+                  '<a href="https://console.anthropic.com/settings/keys" '
+                  'style="color: #38bdf8; text-decoration: none;">'
+                  'console.anthropic.com/settings/keys</a>.'),
+    "ollama": ('Don\'t have Ollama? '
+               '<a href="https://ollama.com/download" '
+               'style="color: #38bdf8; text-decoration: none;">'
+               'Download for your OS</a>, then run <code>ollama pull llama3.2</code>.'),
+}
 
 _ASSETS = Path(__file__).resolve().parents[1] / "assets"
 
@@ -186,15 +205,26 @@ class WakeWordPage(QWizardPage):
         return True
 
 
+class _BackendRow:
+    """Container for the per-backend widgets (input, test, status, model)."""
+    __slots__ = ("input", "test_btn", "status", "model")
+    def __init__(self):
+        self.input: QLineEdit | None = None
+        self.test_btn: QPushButton | None = None
+        self.status: QLabel | None = None
+        self.model: QComboBox | None = None
+
+
 class AIBackendPage(QWizardPage):
-    probe_done = Signal(bool, str, list)
+    # Single shared signal: (backend_name, ok, msg, models)
+    probe_done = Signal(str, bool, str, list)
 
     def __init__(self):
         super().__init__()
         self.probe_done.connect(self._on_probe_done)
         self.setTitle(" ")
         layout = QVBoxLayout(self)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
         layout.addWidget(_h1("AI parsing (optional)"))
         layout.addWidget(_muted(
             "Voice Notes can extract a title, tags, and priority from each "
@@ -203,92 +233,63 @@ class AIBackendPage(QWizardPage):
 
         self._group = QButtonGroup(self)
         current = (db_get_setting("parser_backend", "none") or "none").lower()
+        self._rows: dict[str, _BackendRow] = {}
 
+        # None
         self._rb_none = QRadioButton("None, save raw transcript only")
+        self._group.addButton(self._rb_none)
+        layout.addWidget(self._rb_none)
+
+        # OpenAI
         self._rb_openai = QRadioButton("OpenAI (cloud, paid, fast)")
-        self._rb_anthropic = QRadioButton("Anthropic Claude Haiku (cloud, paid, fast)")
+        self._group.addButton(self._rb_openai)
+        layout.addWidget(self._rb_openai)
+        self._rows["openai"] = self._build_backend_block(
+            layout,
+            label="OpenAI key:",
+            placeholder="sk-...",
+            password=True,
+            existing_value=get_secret("openai"),
+            model_label="Model:",
+            model_placeholder="gpt-4o-mini",
+            existing_model=(db_get_setting("openai_model", "") or "").strip(),
+            link_html=_BACKEND_LINKS["openai"],
+            backend_name="openai",
+        )
+
+        # Anthropic
+        self._rb_anthropic = QRadioButton("Anthropic Claude (cloud, paid, fast)")
+        self._group.addButton(self._rb_anthropic)
+        layout.addWidget(self._rb_anthropic)
+        self._rows["anthropic"] = self._build_backend_block(
+            layout,
+            label="Anthropic key:",
+            placeholder="sk-ant-...",
+            password=True,
+            existing_value=get_secret("anthropic"),
+            model_label="Model:",
+            model_placeholder="claude-haiku-4-5",
+            existing_model=(db_get_setting("anthropic_model", "") or "").strip(),
+            link_html=_BACKEND_LINKS["anthropic"],
+            backend_name="anthropic",
+        )
+
+        # Ollama
         self._rb_ollama = QRadioButton("Ollama (local, free, requires Ollama install)")
-        for rb in (self._rb_none, self._rb_openai, self._rb_anthropic, self._rb_ollama):
-            self._group.addButton(rb)
-            layout.addWidget(rb)
-
-        # OpenAI key field
-        self._openai_key = QLineEdit()
-        self._openai_key.setPlaceholderText("sk-...")
-        self._openai_key.setEchoMode(QLineEdit.Password)
-        existing = get_secret("openai")
-        if existing:
-            self._openai_key.setText(existing)
-        key_row = QWidget(self)
-        kr = QHBoxLayout(key_row)
-        kr.setContentsMargins(20, 0, 0, 0)
-        kr.setSpacing(10)
-        kr.addWidget(QLabel("OpenAI key:"))
-        kr.addWidget(self._openai_key, 1)
-        layout.addWidget(key_row)
-
-        # Anthropic key field
-        self._anthropic_key = QLineEdit()
-        self._anthropic_key.setPlaceholderText("sk-ant-...")
-        self._anthropic_key.setEchoMode(QLineEdit.Password)
-        existing_a = get_secret("anthropic")
-        if existing_a:
-            self._anthropic_key.setText(existing_a)
-        ank_row = QWidget(self)
-        ank = QHBoxLayout(ank_row)
-        ank.setContentsMargins(20, 0, 0, 0)
-        ank.setSpacing(10)
-        ank.addWidget(QLabel("Anthropic key:"))
-        ank.addWidget(self._anthropic_key, 1)
-        layout.addWidget(ank_row)
-
-        # Ollama URL field + Test connection button
-        self._ollama_url = QLineEdit()
-        self._ollama_url.setPlaceholderText("http://localhost:11434")
-        existing_url = db_get_setting("ollama_base_url", "http://localhost:11434") or ""
-        self._ollama_url.setText(existing_url or "http://localhost:11434")
-        url_row = QWidget(self)
-        ur = QHBoxLayout(url_row)
-        ur.setContentsMargins(20, 0, 0, 0)
-        ur.setSpacing(10)
-        ur.addWidget(QLabel("Ollama URL:"))
-        ur.addWidget(self._ollama_url, 1)
-        self._ollama_test_btn = QPushButton("Test", url_row)
-        self._ollama_test_btn.setCursor(Qt.PointingHandCursor)
-        self._ollama_test_btn.clicked.connect(self._on_test_ollama)
-        ur.addWidget(self._ollama_test_btn)
-        layout.addWidget(url_row)
-
-        # Ollama install / status hint, indented under the row.
-        self._ollama_status = QLabel(
-            'Don\'t have Ollama? '
-            '<a href="https://ollama.com/download" style="color: #38bdf8; text-decoration: none;">'
-            'Download for your OS</a>, then run <code>ollama pull llama3.2</code>.',
-            self,
+        self._group.addButton(self._rb_ollama)
+        layout.addWidget(self._rb_ollama)
+        self._rows["ollama"] = self._build_backend_block(
+            layout,
+            label="Ollama URL:",
+            placeholder="http://localhost:11434",
+            password=False,
+            existing_value=(db_get_setting("ollama_base_url", "http://localhost:11434") or "http://localhost:11434"),
+            model_label="Model:",
+            model_placeholder="qwen2.5:7b-instruct-q5_K_M",
+            existing_model=(db_get_setting("ollama_model", "") or "").strip(),
+            link_html=_BACKEND_LINKS["ollama"],
+            backend_name="ollama",
         )
-        self._ollama_status.setOpenExternalLinks(True)
-        self._ollama_status.setTextInteractionFlags(Qt.TextBrowserInteraction)
-        self._ollama_status.setWordWrap(True)
-        self._ollama_status.setStyleSheet(
-            "color: rgba(180, 200, 230, 0.7); font-size: 12px; padding-left: 80px;"
-        )
-        layout.addWidget(self._ollama_status)
-
-        # Ollama model picker — editable QComboBox. Populated when Test
-        # succeeds; user can also type a name (e.g., one they plan to pull).
-        self._ollama_model = QComboBox(self)
-        self._ollama_model.setEditable(True)
-        self._ollama_model.lineEdit().setPlaceholderText("qwen2.5:7b-instruct-q5_K_M")
-        existing_model = (db_get_setting("ollama_model", "") or "").strip()
-        if existing_model:
-            self._ollama_model.setCurrentText(existing_model)
-        model_row = QWidget(self)
-        mr = QHBoxLayout(model_row)
-        mr.setContentsMargins(20, 0, 0, 0)
-        mr.setSpacing(10)
-        mr.addWidget(QLabel("Ollama model:"))
-        mr.addWidget(self._ollama_model, 1)
-        layout.addWidget(model_row)
 
         # Apply current choice
         if current == "openai":
@@ -300,68 +301,137 @@ class AIBackendPage(QWizardPage):
         else:
             self._rb_none.setChecked(True)
 
-        self._rb_none.toggled.connect(lambda _on: self._sync_rows())
-        self._rb_openai.toggled.connect(lambda _on: self._sync_rows())
-        self._rb_anthropic.toggled.connect(lambda _on: self._sync_rows())
-        self._rb_ollama.toggled.connect(lambda _on: self._sync_rows())
+        for rb in (self._rb_none, self._rb_openai, self._rb_anthropic, self._rb_ollama):
+            rb.toggled.connect(lambda _on: self._sync_rows())
         self._sync_rows()
 
         layout.addStretch(1)
 
+    def _build_backend_block(
+        self, parent_layout, *, label, placeholder, password, existing_value,
+        model_label, model_placeholder, existing_model, link_html, backend_name,
+    ) -> _BackendRow:
+        row = _BackendRow()
+
+        # Row 1: input + Test
+        input_row = QWidget(self)
+        ir = QHBoxLayout(input_row)
+        ir.setContentsMargins(20, 0, 0, 0)
+        ir.setSpacing(10)
+        ir.addWidget(QLabel(label))
+        row.input = QLineEdit(input_row)
+        row.input.setPlaceholderText(placeholder)
+        if password:
+            row.input.setEchoMode(QLineEdit.Password)
+        if existing_value:
+            row.input.setText(existing_value)
+        ir.addWidget(row.input, 1)
+        row.test_btn = QPushButton("Test", input_row)
+        row.test_btn.setCursor(Qt.PointingHandCursor)
+        row.test_btn.clicked.connect(lambda _checked=False, b=backend_name: self._run_test(b))
+        ir.addWidget(row.test_btn)
+        parent_layout.addWidget(input_row)
+
+        # Row 2: status / help link
+        row.status = QLabel(link_html, self)
+        row.status.setOpenExternalLinks(True)
+        row.status.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        row.status.setWordWrap(True)
+        row.status.setStyleSheet(
+            "color: rgba(180, 200, 230, 0.7); font-size: 12px; padding-left: 100px;"
+        )
+        parent_layout.addWidget(row.status)
+
+        # Row 3: model dropdown
+        model_row_w = QWidget(self)
+        mr = QHBoxLayout(model_row_w)
+        mr.setContentsMargins(20, 0, 0, 0)
+        mr.setSpacing(10)
+        mr.addWidget(QLabel(model_label))
+        row.model = QComboBox(model_row_w)
+        row.model.setEditable(True)
+        row.model.lineEdit().setPlaceholderText(model_placeholder)
+        if existing_model:
+            row.model.setCurrentText(existing_model)
+        mr.addWidget(row.model, 1)
+        parent_layout.addWidget(model_row_w)
+
+        return row
+
     def _sync_rows(self) -> None:
-        self._openai_key.parentWidget().setEnabled(self._rb_openai.isChecked())
-        self._anthropic_key.parentWidget().setEnabled(self._rb_anthropic.isChecked())
-        self._ollama_url.parentWidget().setEnabled(self._rb_ollama.isChecked())
+        # Each backend's block enabled only when its radio is selected.
+        # parentWidget() of the input is the row container.
+        gates = {
+            "openai": self._rb_openai.isChecked(),
+            "anthropic": self._rb_anthropic.isChecked(),
+            "ollama": self._rb_ollama.isChecked(),
+        }
+        for name, row in self._rows.items():
+            enabled = gates[name]
+            row.input.parentWidget().setEnabled(enabled)
+            row.status.setEnabled(enabled)
+            row.model.parentWidget().setEnabled(enabled)
 
     def validatePage(self) -> bool:
         if self._rb_openai.isChecked():
             db_set_setting("parser_backend", "openai")
-            set_secret("openai", self._openai_key.text().strip())
+            set_secret("openai", self._rows["openai"].input.text().strip())
+            db_set_setting("openai_model", self._rows["openai"].model.currentText().strip())
         elif self._rb_anthropic.isChecked():
             db_set_setting("parser_backend", "anthropic")
-            set_secret("anthropic", self._anthropic_key.text().strip())
+            set_secret("anthropic", self._rows["anthropic"].input.text().strip())
+            db_set_setting("anthropic_model", self._rows["anthropic"].model.currentText().strip())
         elif self._rb_ollama.isChecked():
             db_set_setting("parser_backend", "local")
-            db_set_setting("ollama_base_url", self._ollama_url.text().strip() or "http://localhost:11434")
-            db_set_setting("ollama_model", self._ollama_model.currentText().strip())
+            db_set_setting(
+                "ollama_base_url",
+                self._rows["ollama"].input.text().strip() or "http://localhost:11434",
+            )
+            db_set_setting("ollama_model", self._rows["ollama"].model.currentText().strip())
         else:
             db_set_setting("parser_backend", "none")
         return True
 
-    @Slot()
-    def _on_test_ollama(self) -> None:
-        url = self._ollama_url.text().strip() or "http://localhost:11434"
-        self._ollama_test_btn.setEnabled(False)
-        self._ollama_test_btn.setText("Testing…")
+    def _run_test(self, backend: str) -> None:
+        row = self._rows[backend]
+        value = row.input.text().strip()
+        row.test_btn.setEnabled(False)
+        row.test_btn.setText("Testing…")
 
         def worker():
-            ok, msg, models = probe_endpoint(url)
-            self.probe_done.emit(ok, msg, models)
+            if backend == "openai":
+                ok, msg, models = probe_openai(value)
+            elif backend == "anthropic":
+                ok, msg, models = probe_anthropic(value)
+            else:  # ollama
+                ok, msg, models = probe_endpoint(value or "http://localhost:11434")
+            self.probe_done.emit(backend, ok, msg, models)
 
         threading.Thread(target=worker, daemon=True).start()
 
-    @Slot(bool, str, list)
-    def _on_probe_done(self, ok: bool, msg: str, models: list) -> None:
-        self._ollama_test_btn.setEnabled(True)
-        self._ollama_test_btn.setText("Test")
+    @Slot(str, bool, str, list)
+    def _on_probe_done(self, backend: str, ok: bool, msg: str, models: list) -> None:
+        row = self._rows.get(backend)
+        if row is None:
+            return
+        row.test_btn.setEnabled(True)
+        row.test_btn.setText("Test")
         prefix = "✓" if ok else "✗"
         color = "#22c55e" if ok else "#f87171"
-        self._ollama_status.setText(
+        row.status.setText(
             f'<span style="color: {color}">{prefix} {msg}</span><br>'
-            f'Don\'t have Ollama? '
-            f'<a href="https://ollama.com/download" style="color: #38bdf8; text-decoration: none;">'
-            f'Download for your OS</a>, then run <code>ollama pull llama3.2</code>.'
+            f'{_BACKEND_LINKS[backend]}'
         )
         if models:
-            current = self._ollama_model.currentText().strip()
-            self._ollama_model.clear()
-            self._ollama_model.addItems(models)
+            current = row.model.currentText().strip()
+            row.model.clear()
+            row.model.addItems(models)
             if current and current in models:
-                self._ollama_model.setCurrentText(current)
+                row.model.setCurrentText(current)
             elif current:
-                self._ollama_model.setCurrentText(current)
+                row.model.setCurrentText(current)
             else:
-                self._ollama_model.setCurrentIndex(0)
+                row.model.setCurrentIndex(0)
 
 
 class DownloadsPage(QWizardPage):

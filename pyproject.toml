@@ -1,0 +1,109 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "voice-notes-desktop"
+version = "0.1.0"
+description = "Voice-first scratchpad: local speech-to-text, optional AI parsing, quick todos, custom wake words. Cross-platform desktop app."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Michael Frostbutter", email = "michael@ageniuslabs.com" },
+]
+keywords = [
+    "voice",
+    "notes",
+    "speech-to-text",
+    "whisper",
+    "openwakeword",
+    "pyside6",
+    "desktop",
+    "dictation",
+    "transcription",
+    "agenius",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: MacOS X",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Office/Business",
+]
+dependencies = [
+    "PySide6>=6.6,<6.9",
+    "faster-whisper>=1.0.0",
+    "numpy>=1.24",
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12",
+    "python-dotenv>=1.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+wakeword = [
+    "openwakeword>=0.6.0",
+]
+openai = [
+    "openai>=1.30",
+]
+all = [
+    "openwakeword>=0.6.0",
+    "openai>=1.30",
+]
+dev = [
+    "ruff>=0.4",
+    "pytest>=7.4",
+    "pytest-qt>=4.4",
+    "pillow>=10.0",
+]
+
+[project.scripts]
+voice-notes = "voice_notes.__main__:main"
+
+[project.gui-scripts]
+voice-notes-gui = "voice_notes.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/Agenius-AI-Labs/voice-notes-desktop"
+Documentation = "https://github.com/Agenius-AI-Labs/voice-notes-desktop/tree/main/docs"
+Repository = "https://github.com/Agenius-AI-Labs/voice-notes-desktop"
+Issues = "https://github.com/Agenius-AI-Labs/voice-notes-desktop/issues"
+Changelog = "https://github.com/Agenius-AI-Labs/voice-notes-desktop/blob/main/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/voice_notes"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/voice_notes",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"

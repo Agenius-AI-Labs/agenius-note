@@ -1,0 +1,81 @@
+# Contributing to Voice Notes Desktop
+
+Thanks for the interest. This is a working desktop app, not a toy, so the bar for PRs is "would I run this on my own machine tomorrow?"
+
+## Quick start
+
+```bash
+git clone https://github.com/Agenius-AI-Labs/voice-notes-desktop.git
+cd voice-notes-desktop
+python -m venv .venv
+# Windows:  .venv\Scripts\activate
+# Unix:     source .venv/bin/activate
+pip install -e ".[all,dev]"
+voice-notes
+```
+
+Python 3.10+. A microphone helps if you want to test the dictation path.
+
+## Project layout
+
+```
+src/voice_notes/
+├── core/        # Audio capture, STT, AI parse, DB, wake-word, downloads
+├── theme/       # QSS template + token sets (dark, light, cyberpunk)
+└── ui/          # PySide6 widgets: panels, sidebar, dialogs, wizard
+```
+
+Tests in `tests/`. Docs in `docs/`. Build scripts in `scripts/`.
+
+## Threading rules (read this before touching audio/STT/AL)
+
+- Long-running work (audio capture, transcription, AI parse, model downloads) runs in `threading.Thread(daemon=True)`.
+- Worker threads **never** touch widgets. They emit Qt signals defined on `AppSignals` (`src/voice_notes/ui/signals.py`); Qt routes the slots back to the GUI thread via `QueuedConnection`.
+- The GUI thread owns all widget mutations. Property changes that drive QSS selectors require a `restyle()` call (see `ui/helpers.py`).
+
+Break these rules and you'll get `QObject::startTimer: Timers cannot be started from another thread` or random segfaults. Don't.
+
+## Code style
+
+- `ruff check src tests` must pass.
+- 100-char soft line length. Don't fight the formatter.
+- Prefer `pathlib.Path` over `os.path`.
+- Type hints on public functions.
+- No comments explaining *what* code does; the code already says that. Reserve comments for *why* (a constraint, a workaround, a subtle invariant).
+- No emojis in code or comments unless they're part of UI strings the user sees.
+
+## Tests
+
+```bash
+pytest
+```
+
+Pytest with `pytest-qt`. UI tests are marked and skipped on headless CI for now. New code that touches `core/` should ship a test if behavior is non-trivial.
+
+## PR process
+
+1. Fork, branch off `main`.
+2. Make changes. Run `ruff check` and `pytest`.
+3. Update `CHANGELOG.md` under `[Unreleased]` with one-line summary.
+4. Open PR. Use the template. Link the related issue if there is one.
+5. Maintainer reviews, requests changes, or merges.
+
+Squash-merge by default. Commit messages on `main` follow `area: short summary` (e.g., `stt: force CUDA float16 first`).
+
+## Reporting bugs
+
+Open an issue with:
+- OS + version (Windows 11 23H2, macOS 14.5, Ubuntu 24.04, etc.)
+- Python version (`python --version`) if running from source
+- App version (Settings → About in a future release; for now, `pip show voice-notes-desktop`)
+- Steps to reproduce
+- Expected vs. actual
+- Logs if the app crashed: stderr capture or the Windows Event Viewer trace
+
+## Proposing features
+
+Open an issue with the `feature_request` template before writing code. Keeps us from disagreeing about scope after you've already invested hours.
+
+## Code of Conduct
+
+See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Be decent. Disagreements about technical decisions are welcome; personal attacks aren't.

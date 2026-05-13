@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+build/
+dist/
+.python-version
+.venv/
+venv/
+env/
+
+# Project runtime artifacts
+*.db
+*.db-shm
+*.db-wal
+voice_notes.db
+.env
+.env.local
+
+# Model caches (downloaded on first run, sometimes ends up in repo dir)
+models/
+*.onnx
+*.tflite
+faster_whisper_cache/
+
+# Generated installers (built by GitHub Actions, not committed)
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.msi
+
+# PyInstaller artifacts
+*.spec
+build/
+dist/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test + coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/

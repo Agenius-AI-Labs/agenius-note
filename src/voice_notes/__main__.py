@@ -54,6 +54,10 @@ def main() -> int:
     _load_env()
     _enable_high_dpi()
 
+    from voice_notes.core.logging_config import configure, get_logger
+    configure()
+    log = get_logger("main")
+
     from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import QApplication
 
@@ -71,7 +75,7 @@ def main() -> int:
         from voice_notes.theme import load_fonts
         load_fonts()
     except Exception as exc:
-        print(f"font loading failed: {exc}", file=sys.stderr)
+        log.warning("font loading failed: %s", exc)
 
     # Apply theme. Default first-launch to cyberpunk; honour persisted choice.
     try:
@@ -85,7 +89,7 @@ def main() -> int:
         from voice_notes.theme import get_theme, render
         app.setStyleSheet(render(get_theme(theme_name)))
     except Exception as exc:
-        print(f"theme apply failed: {exc}", file=sys.stderr)
+        log.warning("theme apply failed: %s", exc)
 
     # First-run setup wizard runs before MainWindow so model downloads
     # happen up-front instead of on the first mic click.
@@ -96,7 +100,7 @@ def main() -> int:
             wiz = SetupWizard()
             wiz.exec()
     except Exception as exc:
-        print(f"setup wizard failed: {exc}", file=sys.stderr)
+        log.warning("setup wizard failed: %s", exc)
 
     from voice_notes.ui.main_window import MainWindow
     win = MainWindow()

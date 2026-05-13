@@ -1,17 +1,18 @@
 """Local faster-whisper transcription.
 
 Model selection is read from the SQLite settings KV (`whisper_model`).
-Device selection prefers CUDA float16 (RTX 5060 etc.), falls back to CPU int8.
+Device selection prefers CUDA float16, falls back to CPU int8.
 VAD filtering is enabled by default to skip silence and trim wall time.
 """
 
 from __future__ import annotations
 
 import os
-import tempfile
 import time
+import uuid
+from pathlib import Path
 
-from .db import db_get_setting
+from .db import _user_data_dir, db_get_setting
 
 _WHISPER_CACHE: dict = {"model": None, "name": "", "device": "", "compute": ""}
 
@@ -60,9 +61,14 @@ def transcribe_with_meta(wav_bytes: bytes) -> tuple[str, dict]:
 
     started = time.perf_counter()
     model = _get_whisper_model(model_name)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-        tmp.write(wav_bytes)
-        tmp_path = tmp.name
+    # Write the WAV into our user-data dir rather than system temp. Keeps
+    # the audio in a location with consistent OS-user permissions and lets
+    # users find / wipe it deterministically. The dir is created by db.py
+    # at import time so it's guaranteed to exist here.
+    scratch_dir = _user_data_dir() / "scratch"
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+    tmp_path = str(scratch_dir / f"capture-{uuid.uuid4().hex}.wav")
+    Path(tmp_path).write_bytes(wav_bytes)
     try:
         kwargs = {}
         if use_vad:

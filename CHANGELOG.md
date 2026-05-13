@@ -20,8 +20,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Removed hardcoded internal LAN IP (`10.10.0.15:11434`) from `core/ollama_parse.py`. Defaults now contain only `http://localhost:11434`; configure remote Ollama endpoints via Settings.
 - `db_update` now validates column names against an allowlist. Unknown columns raise `ValueError`. Prevents SQL-injection-via-dict-key footgun.
 - ElevenLabs `voice_id` is now URL-encoded before being interpolated into the TTS endpoint.
+- WAV tempfiles are now written into `<user-data>/scratch/` instead of system temp. Easier to reason about permissions and cleanup.
 - README warns users to only load custom wake-word `.onnx` files they trained themselves or downloaded from the openWakeWord model zoo (onnxruntime has had CVEs in the past).
-- Initial security audit at `docs/security-audit-v1.md`: 0 critical, 2 high (1 patched, 1 documented for Phase 2 keyring migration), 3 medium (2 patched), 3 low (1 patched).
+- Initial security audit at `docs/security-audit-v1.md`: 0 critical, 2 high (1 patched, 1 documented for Phase 2 keyring migration), 3 medium (2 patched), 3 low (2 patched).
+
+### Internal
+- Replaced `print(stderr)` early-init logging with the `logging` module. Logs now also write to `<user-data>/voice-notes.log` (rotating, 1 MB × 3). Level overridable via `$VOICE_NOTES_LOG_LEVEL`.
+- GitHub Actions CI workflow runs `ruff check` plus pytest across ubuntu/windows/macos × Python 3.10-3.13. Also runs `pip-audit` on dependencies.
+- Issue templates (bug, feature) and PR template under `.github/`.
+- First pytest suite under `tests/`: 31 tests covering voice-route prefix detection, DB schema + CRUD + the `db_update` column allowlist, and wake-word resolver helpers.
 
 ## [0.1.0] - 2026-05-13
 

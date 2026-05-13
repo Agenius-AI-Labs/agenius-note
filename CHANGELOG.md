@@ -4,6 +4,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### UX
+- **Ollama: Test connection** button in both the setup wizard and Settings. Probes the configured URL on a worker thread; shows ✓ with model count + latency, or ✗ with reason on failure. Also calls out "reachable but no models installed, run `ollama pull llama3.2`".
+- **Install Ollama link** sits beneath the URL field in both surfaces. Deep-links to `ollama.com/download` for users who picked the Ollama backend but don't have it installed.
+
 ### Security (audit follow-ups, this release)
 - **H1 patched:** OpenAI / Anthropic API keys now live in the OS keyring
   (macOS Keychain / Windows Credential Manager / Linux Secret Service)

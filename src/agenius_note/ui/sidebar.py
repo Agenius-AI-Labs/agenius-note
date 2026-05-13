@@ -75,15 +75,25 @@ class Sidebar(QFrame):
         outer.setSpacing(0)
 
         # ── Logo ───────────────────────────────────────────────
+        # Two QLabels in an HBox so each word can carry its own QSS color.
+        # We zero spacing/margins everywhere we can so the only horizontal
+        # gap between "Agenius" and "Note" is the font's natural side
+        # bearings, matching the AgeniusDesk logo treatment.
         logo_row = QWidget(self)
         logo_layout = QHBoxLayout(logo_row)
         logo_layout.setContentsMargins(16, 18, 16, 4)
-        logo_layout.setSpacing(0)  # butt "Agenius" and "Note" together to match AgeniusDesk
+        logo_layout.setSpacing(0)
 
         logo_a = QLabel("Agenius", logo_row)
         logo_a.setObjectName("sidebarLogo")
+        logo_a.setContentsMargins(0, 0, 0, 0)
+        logo_a.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+
         logo_b = QLabel("Note", logo_row)
         logo_b.setObjectName("sidebarLogoAccent")
+        logo_b.setContentsMargins(0, 0, 0, 0)
+        logo_b.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+
         logo_layout.addWidget(logo_a)
         logo_layout.addWidget(logo_b)
         logo_layout.addStretch(1)

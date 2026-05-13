@@ -40,21 +40,19 @@ QFrame#sidebar {
     border-right: 1px solid $border_dim;
 }
 
-QLabel#sidebarLogo {
-    color: $text_primary;
+QLabel#sidebarLogo, QLabel#sidebarLogoAccent {
     font-size: 18px;
     font-weight: 700;
     letter-spacing: -0.5px;
-    padding: 18px 0 4px 16px;
+    padding: 0;
+    margin: 0;
     background: transparent;
+}
+QLabel#sidebarLogo {
+    color: $text_primary;
 }
 QLabel#sidebarLogoAccent {
     color: $accent;
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    padding: 18px 16px 4px 0;
-    background: transparent;
 }
 QLabel#sidebarVersion {
     color: $text_dim;

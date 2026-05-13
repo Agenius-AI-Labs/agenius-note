@@ -2,13 +2,28 @@
 
 > Talk to your computer. Get organized text. Stays on your machine.
 
-A voice-first scratchpad for Windows, macOS, and Linux. Push-to-talk dictation, always-listening wake words, local speech-to-text (Whisper), optional AI parsing (Ollama or OpenAI). Quick todos in a right-side pane. A scratchpad workspace for fire-and-forget transcripts you paste elsewhere.
+A voice-first scratchpad for Windows, macOS, and Linux. Push-to-talk dictation, always-listening wake words, local speech-to-text (Whisper), optional AI parsing (Ollama, OpenAI, or Anthropic Claude). Quick todos in a right-side pane. A scratchpad workspace for fire-and-forget transcripts you paste elsewhere.
 
-Local-first by default. Your voice doesn't leave the machine unless you give it an OpenAI key.
+Local-first by default. Your voice doesn't leave the machine unless you give it a cloud key.
 
 <p align="center">
   <img src="docs/screenshots/hero.png" alt="Voice Notes Desktop screenshot" width="900">
 </p>
+
+## Why this exists
+
+Voice Notes started as a tool the author kept wanting and not finding. Three jobs it was built to do:
+
+**1. Capture tasks, notes, and short-term reminders without breaking flow.**
+You're heads-down in something. A reminder hits you. Today the options are: stop, open Notion / Things / Todoist / a sticky note, type, alt-tab back. Or you swallow it and hope you remember. Voice Notes is one click of a mic (or the wake word), 5 seconds of speech, done. The transcript is saved, the AI tags it if you let it, and you're back in the flow.
+
+**2. Be a paste-buffer between AI tools.**
+If you work with multiple LLM chat windows open (Claude in one, ChatGPT in another, a local Ollama somewhere else), you spend a lot of time copying responses around, summarizing them out loud to yourself, then re-typing them into the next prompt. The **Quick Note workspace** is purpose-built for this: dictate freely, the transcript appends with each take, click **Copy**, paste anywhere. No DB writes, no AI parsing, no friction. Every workspace has a Copy button next to the body field for exactly this reason. Talk a thought through, hit Copy, paste the verbal sketch into your next prompt, move on.
+
+**3. Brain-dump while exploring something new.**
+You're poking at a new app or codebase. You'd usually narrate to yourself anyway: "OK, this button does X, but when I click it I get Y, and that's weird because the docs say Z." Voice Notes lets you actually capture that stream-of-consciousness while your hands stay on the mouse. Active Listening with a wake word means you don't even break visual focus. Later, the transcript is a step-by-step record of what you tried and what surprised you, which is gold for writing it up or filing a bug.
+
+Built by an engineer who runs all three of these workflows daily. The design choices reflect that: keystrokes hidden behind a mic press, parsing optional and replaceable, your data on disk where you can grep it, no telemetry, MIT license.
 
 ## Install
 
